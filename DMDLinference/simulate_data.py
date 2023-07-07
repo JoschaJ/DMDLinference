@@ -144,7 +144,7 @@ if __name__ == '__main__':
     mcmc.log_prior = log_prior
 
     # Do inference for the simulated FRBs. Initialize the walkers.
-    nwalkers = 50
+    nwalkers = 100
     rng = np.random.default_rng()
     H0_init = rng.normal(70, 10, size=(nwalkers, 1))
     Obf_init = rng.normal(0.035, 0.005, size=(nwalkers, 1))
@@ -153,10 +153,10 @@ if __name__ == '__main__':
     initial = np.concatenate((H0_init, Obf_init, DL_init, DMhost_init), axis=1)
 
     ndim = 2 + 2*n_FRBs
-    nsteps = 5000
+    nsteps = 50000
 
     # Set up a backend to save the chains to.
-    filename = "simulated_{n_FRBs}FRBs_{nwalkers}x{nsteps}steps.h5"
+    filename = f"simulated_{n_FRBs}FRBs_{nwalkers}x{nsteps}steps.h5"
     backend = emcee.backends.HDFBackend(filename)
     # backend.reset(nwalkers, ndim)
 
@@ -168,7 +168,7 @@ if __name__ == '__main__':
     ndim_J = 2
     nsteps_J = 50000
 
-    filename = "James_prior_{nwalkers}x{nsteps}steps.h5"
+    filename = f"James_prior_{nwalkers}x{nsteps}steps.h5"
     backend = emcee.backends.HDFBackend(filename)
 
     initial_J = np.concatenate((H0_init, Obf_init), axis=1)
@@ -176,7 +176,7 @@ if __name__ == '__main__':
     sampler_J.run_mcmc(initial_J, nsteps_J, progress=True,)
 
     # Sample the GW-FRB posterior without the FRB-z prior.
-    filename = "simulated_noz_{n_FRBs}FRBs_{nwalkers}x{nsteps}steps.h5"
+    filename = f"simulated_noz_{n_FRBs}FRBs_{nwalkers}x{nsteps}steps.h5"
     backend = emcee.backends.HDFBackend(filename)
 
     sampler_noz = emcee.EnsembleSampler(nwalkers, ndim, log_probability_without_FRBs,

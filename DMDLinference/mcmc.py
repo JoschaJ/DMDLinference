@@ -314,7 +314,7 @@ if __name__ == '__main__':
     initial = np.stack((H0_init, Obf_init, DL_init, DMhost_init), axis=1)
     # initial = [DL_init, H0_init, Obf_init, DMhost_init]
     nwalkers, ndim = initial.shape
-    nsteps = 1000
+    nsteps = 50000
 
     # Set up a backend to save the chains to.
     filename = "real_FRB_{nwalkers}x{nsteps}steps.h5"

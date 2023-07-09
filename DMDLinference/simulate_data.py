@@ -11,6 +11,8 @@ import corner
 
 import mcmc
 
+from multiprocessing import Pool
+
 from mcmc import p_DMcosmic, lum_dist, log_probability, log_p_H0_with_prior
 from mcmc import log_probability_without_FRBs
 
@@ -160,9 +162,11 @@ if __name__ == '__main__':
     backend = emcee.backends.HDFBackend(filename)
     # backend.reset(nwalkers, ndim)
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
-                                    args=(DMexc, DL_meas, sigma_DL), backend=backend)
-    sampler.run_mcmc(initial, nsteps, progress=True)
+    with Pool() as pool:
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
+                                        args=(DMexc, DL_meas, sigma_DL),
+                                        backend=backend, pool=pool)
+        sampler.run_mcmc(initial, nsteps, progress=True)
 
     # Sample the James prior.
     ndim_J = 2
@@ -176,16 +180,20 @@ if __name__ == '__main__':
     # sampler_J.run_mcmc(initial_J, nsteps_J, progress=True,)
 
     # Test log_p James
-    sampler_J2 = emcee.EnsembleSampler(nwalkers, ndim_J, log_p_H0_with_prior, backend=backend)
-    sampler_J2.run_mcmc(initial_J, nsteps_J, progress=True,)
+    with Pool() as pool:
+        sampler_J2 = emcee.EnsembleSampler(nwalkers, ndim_J, log_p_H0_with_prior, backend=backend,
+                                           pool=pool)
+        sampler_J2.run_mcmc(initial_J, nsteps_J, progress=True,)
 
     # Sample the GW-FRB posterior without the FRB-z prior.
     filename = f"../Data/simulated_noz_{n_FRBs}FRBs_{nwalkers}x{nsteps}steps.h5"
     backend = emcee.backends.HDFBackend(filename)
 
-    sampler_noz = emcee.EnsembleSampler(nwalkers, ndim, log_probability_without_FRBs,
-                                    args=(DMexc, DL_meas, sigma_DL), backend=backend)
-    sampler_noz.run_mcmc(initial, nsteps, progress=True)
+    with Pool() as pool:
+        sampler_noz = emcee.EnsembleSampler(nwalkers, ndim, log_probability_without_FRBs,
+                                        args=(DMexc, DL_meas, sigma_DL),
+                                        backend=backend, pool=pool)
+        sampler_noz.run_mcmc(initial, nsteps, progress=True)
 
 
 

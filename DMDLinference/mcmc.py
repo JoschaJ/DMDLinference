@@ -22,7 +22,7 @@ from scipy.optimize import minimize_scalar
 # Define a prior probability function on O_mH_0f_d from FRBs by James.
 james_data = np.loadtxt('James2022_H0_posterior.csv', delimiter=';')
 
-H0 = james_data[:, 0]
+H0_points = james_data[:, 0]
 p_H0 = james_data[:, 1]
 
 # Define the constant that James2022 assumed for O_b*H_0^2*f_d (ignoring z dependence of f_d)
@@ -34,8 +34,8 @@ def ObHf(H0):
     return james_const/H0
 
 
-p_ObHf_points = p_H0*james_const/ObHf(H0)**2
-ObHf_points = ObHf(H0)[::-1]
+p_ObHf_points = p_H0*james_const/ObHf(H0_points)**2
+ObHf_points = ObHf(H0_points)[::-1]
 p_ObHf_unnorm = CubicSpline(ObHf_points, p_ObHf_points[::-1], extrapolate=False)
 
 normalization = quad(p_ObHf_unnorm, ObHf_points.min(), ObHf_points.max())[0]
@@ -48,6 +48,19 @@ def log_p_Obf(Obf, H0):
                      np.log(p_ObHf_unnorm(Obf*H0)*H0/normalization), -np.inf)
 
     return log_p_Obf
+
+
+p_H0_unnorm = CubicSpline(H0_points, p_H0, extrapolate=False)
+norm_p_H0 = quad(p_H0_unnorm, H0_points.min(), H0_points.max())[0]
+
+
+def log_p_H0(H0, Obf):
+    """Probability of Omega_b*f_d given H0"""
+    log_p_H0 = np.where((H0_points.min() < ObHf(H0)/Obf) & (ObHf(H0)/Obf < H0_points.max()),
+                     np.log(p_H0_unnorm(ObHf(H0)/Obf)/norm_p_H0), -np.inf)
+
+    return log_p_H0
+
 
 # x = np.linspace(ObHf_points.min()/70, ObHf_points.max()/70)
 # plt.plot(x, p_Obf(x, H0=70))
@@ -265,7 +278,7 @@ def log_probability(theta, *args):
 
     # Evaluate the likelihood, only if the prior is non-infinite.
     if np.isfinite(lp):
-        log_prob = lp + log_p_Obf(Obf, H0) + log_p_DM(DMexc, DMhost, DL, H0, Obf)
+        log_prob = lp + log_p_H0(H0, Obf) + log_p_DM(DMexc, DMhost, DL, H0, Obf)
     else:
         log_prob = -np.inf
     return log_prob
@@ -299,6 +312,15 @@ def log_p_Obf_with_prior(theta):
     H0, Obf = theta
     if .1 < H0 < 150. and 0.0 < Obf < 1.0:
         return log_p_Obf(Obf, H0)
+    else:
+        return -np.inf
+
+
+def log_p_H0_with_prior(theta):
+    """p(Obf,H_0) with a prior to plot contours from only the FRB-z"""
+    H0, Obf = theta
+    if .1 < H0 < 150. and 0.0 < Obf < 1.0:
+        return log_p_H0(H0, Obf)
     else:
         return -np.inf
 

@@ -11,7 +11,7 @@ import corner
 
 import mcmc
 
-from mcmc import p_DMcosmic, lum_dist, log_probability, log_p_Obf_with_prior
+from mcmc import p_DMcosmic, lum_dist, log_probability, log_p_H0_with_prior
 from mcmc import log_probability_without_FRBs
 
 def draw_DM(frb_zs, Obf=0.035, H0=70, F=0.32, Om=0.3, DM0=100, sigma_host=1, rng=None):
@@ -117,7 +117,7 @@ def log_prior(DL, H0, Obf, prior_args):
     """Redefine prior probabilities for our D_L."""
     DL_meas = prior_args[0]  #np.asarray(prior_args[:len(DL)//2])
     sigma_DL = prior_args[1]  #np.asarray(prior_args[len(DL)//2:])
-    if np.all(0 < DL) and 10 < H0 < 150. and 0.0 < Obf < 1.0 :
+    if np.all(0 < DL) and 10 < H0 < 150. and 0.0 < Obf < 0.2 :
         return np.sum(- np.log(sigma_DL*np.sqrt(2*np.pi)) - (DL-DL_meas)**2/(2*sigma_DL**2))
     else:
         return -np.inf
@@ -156,7 +156,7 @@ if __name__ == '__main__':
     nsteps = 50000
 
     # Set up a backend to save the chains to.
-    filename = f"simulated_{n_FRBs}FRBs_{nwalkers}x{nsteps}steps.h5"
+    filename = f"../Data/simulated_{n_FRBs}FRBs_{nwalkers}x{nsteps}steps.h5"
     backend = emcee.backends.HDFBackend(filename)
     # backend.reset(nwalkers, ndim)
 
@@ -168,15 +168,19 @@ if __name__ == '__main__':
     ndim_J = 2
     nsteps_J = 50000
 
-    filename = f"James_prior_{nwalkers}x{nsteps}steps.h5"
+    filename = f"../Data/James_prior_{nwalkers}x{nsteps}steps.h5"
     backend = emcee.backends.HDFBackend(filename)
 
     initial_J = np.concatenate((H0_init, Obf_init), axis=1)
-    sampler_J = emcee.EnsembleSampler(nwalkers, ndim_J, log_p_Obf_with_prior, backend=backend)
-    sampler_J.run_mcmc(initial_J, nsteps_J, progress=True,)
+    # sampler_J = emcee.EnsembleSampler(nwalkers, ndim_J, log_p_Obf_with_prior, backend=backend)
+    # sampler_J.run_mcmc(initial_J, nsteps_J, progress=True,)
+
+    # Test log_p James
+    sampler_J2 = emcee.EnsembleSampler(nwalkers, ndim_J, log_p_H0_with_prior, backend=backend)
+    sampler_J2.run_mcmc(initial_J, nsteps_J, progress=True,)
 
     # Sample the GW-FRB posterior without the FRB-z prior.
-    filename = f"simulated_noz_{n_FRBs}FRBs_{nwalkers}x{nsteps}steps.h5"
+    filename = f"../Data/simulated_noz_{n_FRBs}FRBs_{nwalkers}x{nsteps}steps.h5"
     backend = emcee.backends.HDFBackend(filename)
 
     sampler_noz = emcee.EnsembleSampler(nwalkers, ndim, log_probability_without_FRBs,

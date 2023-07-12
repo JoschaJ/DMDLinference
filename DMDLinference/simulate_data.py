@@ -127,13 +127,13 @@ def log_prior(DL, H0, Obf, prior_args):
 
 if __name__ == '__main__':
     # Simulate FRBs.
-    n_FRBs = 10
+    n_FRBs = 100
 
     c = 299792.458
-    Obf = 0.035
+    Obf = .049*0.844
     H0 = 70
     Om = 0.3
-    z_mean=0.03
+    z_mean = 1
     mu_host = 2.23
     DM0 = 10**mu_host
     sigma_host = 0.57
@@ -158,7 +158,7 @@ if __name__ == '__main__':
     nsteps = 50000
 
     # Set up a backend to save the chains to.
-    filename = f"../Data/simulated_{n_FRBs}FRBs_{nwalkers}x{nsteps}steps.h5"
+    filename = f"../Data/simulated_{n_FRBs}FRBs_z{z_mean}_{nwalkers}x{nsteps}steps.h5"
     backend = emcee.backends.HDFBackend(filename)
     # backend.reset(nwalkers, ndim)
 
@@ -168,25 +168,25 @@ if __name__ == '__main__':
                                         backend=backend, pool=pool)
         sampler.run_mcmc(initial, nsteps, progress=True)
 
-    # Sample the James prior.
-    ndim_J = 2
-    nsteps_J = 50000
+    # # Sample the James prior.
+    # ndim_J = 2
+    # nsteps_J = 50000
 
-    filename = f"../Data/James_prior_{nwalkers}x{nsteps}steps.h5"
-    backend = emcee.backends.HDFBackend(filename)
+    # filename = f"../Data/James_prior_{nwalkers}x{nsteps}steps.h5"
+    # backend = emcee.backends.HDFBackend(filename)
 
-    initial_J = np.concatenate((H0_init, Obf_init), axis=1)
+    # initial_J = np.concatenate((H0_init, Obf_init), axis=1)
     # sampler_J = emcee.EnsembleSampler(nwalkers, ndim_J, log_p_Obf_with_prior, backend=backend)
     # sampler_J.run_mcmc(initial_J, nsteps_J, progress=True,)
 
-    # Test log_p James
-    with Pool() as pool:
-        sampler_J2 = emcee.EnsembleSampler(nwalkers, ndim_J, log_p_H0_with_prior, backend=backend,
-                                           pool=pool)
-        sampler_J2.run_mcmc(initial_J, nsteps_J, progress=True,)
+    # # Test log_p James
+    # with Pool() as pool:
+    #     sampler_J2 = emcee.EnsembleSampler(nwalkers, ndim_J, log_p_H0_with_prior, backend=backend,
+    #                                         pool=pool)
+    #     sampler_J2.run_mcmc(initial_J, nsteps_J, progress=True,)
 
     # Sample the GW-FRB posterior without the FRB-z prior.
-    filename = f"../Data/simulated_noz_{n_FRBs}FRBs_{nwalkers}x{nsteps}steps.h5"
+    filename = f"../Data/simulated_noz_{n_FRBs}FRBs_z{z_mean}_{nwalkers}x{nsteps}steps.h5"
     backend = emcee.backends.HDFBackend(filename)
 
     with Pool() as pool:

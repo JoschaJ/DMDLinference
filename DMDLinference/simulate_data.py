@@ -146,11 +146,11 @@ if __name__ == '__main__':
     mcmc.log_prior = log_prior
 
     # Do inference for the simulated FRBs. Initialize the walkers.
-    nwalkers = 100
+    nwalkers = 500
     rng = np.random.default_rng()
     H0_init = rng.normal(70, 10, size=(nwalkers, 1))
-    Obf_init = rng.normal(0.035, 0.005, size=(nwalkers, 1))
-    DL_init = rng.normal(DL_meas, 10, size=(nwalkers, n_FRBs))
+    Obf_init = rng.normal(Obf, 0.005, size=(nwalkers, 1))
+    DL_init = rng.normal(DL_meas, sigma_DL, size=(nwalkers, n_FRBs))
     DMhost_init = rng.uniform(0, DMexc, size=(nwalkers, n_FRBs))
     initial = np.concatenate((H0_init, Obf_init, DL_init, DMhost_init), axis=1)
 

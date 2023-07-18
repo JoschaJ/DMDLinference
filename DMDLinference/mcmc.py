@@ -13,6 +13,7 @@ import corner
 import astropy.constants as const
 import astropy.units as u
 
+from multiprocessing import Pool
 from scipy.interpolate import CubicSpline  # interpolate James' data points
 from scipy.integrate import quad
 from scipy.stats import gaussian_kde
@@ -325,29 +326,30 @@ def log_p_H0_with_prior(theta):
         return -np.inf
 
 
-# if __name__ == '__main__':
-#     DMexc_ne2001 = 79.4
-#     nwalkers = 50
-#     rng = np.random.default_rng()
-#     DL_init = rng.normal(DLum.mean(), 10, size=nwalkers)
-#     H0_init = rng.normal(70, 5, size=nwalkers)
-#     Obf_init = rng.normal(0.035, 0.005, size=nwalkers)
-#     DMhost_init = rng.uniform(0, DMexc_ne2001, size=nwalkers)
-#     initial = np.stack((H0_init, Obf_init, DL_init, DMhost_init), axis=1)
-#     # initial = [DL_init, H0_init, Obf_init, DMhost_init]
-#     nwalkers, ndim = initial.shape
-#     nsteps = 50000
+if __name__ == '__main__':
+    DMexc_ne2001 = 79.4
+    nwalkers = 100
+    rng = np.random.default_rng()
+    DL_init = rng.normal(DLum.mean(), 10, size=nwalkers)
+    H0_init = rng.normal(70, 5, size=nwalkers)
+    Obf_init = rng.normal(0.035, 0.005, size=nwalkers)
+    DMhost_init = rng.uniform(0, DMexc_ne2001, size=nwalkers)
+    initial = np.stack((H0_init, Obf_init, DL_init, DMhost_init), axis=1)
+    # initial = [DL_init, H0_init, Obf_init, DMhost_init]
+    nwalkers, ndim = initial.shape
+    nsteps = 100000
 
-#     # Set up a backend to save the chains to.
-#     filename = "real_FRB_{nwalkers}x{nsteps}steps.h5"
-#     backend = emcee.backends.HDFBackend(filename)
+    # Set up a backend to save the chains to.
+    filename = f"../Data/real_FRB_{nwalkers}x{nsteps}steps.h5"
+    backend = emcee.backends.HDFBackend(filename)
 
-#     sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(DMexc_ne2001,),
-#                                     backend=backend)
-#     sampler.run_mcmc(initial, nsteps, progress=True)
+    with Pool() as pool:
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(DMexc_ne2001,),
+                                        backend=backend, pool=pool)
+        sampler.run_mcmc(initial, nsteps, progress=True)
 
-#     tau = sampler.get_autocorr_time()
-#     print(tau)
+    tau = sampler.get_autocorr_time()
+    print(tau)
 
     # Sample the James prior.
     # ndim = 2

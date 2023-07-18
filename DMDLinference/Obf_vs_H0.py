@@ -7,6 +7,7 @@ Created on Sun Jul  9 18:00:57 2023
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from mcmc import average_DM, lum_dist, z_of_DL
 
@@ -27,21 +28,31 @@ def Obf_full(H0, DL):
     z_fid = z_of_DL(DL, H0_fid)
     return Obf_fid * average_DM(z_fid, H0_fid, Obf_fid) / average_DM(z, H0, Obf_fid)
 
-DL = c/H0_fid * lum_dist(0.1)
 
 H0 = np.linspace(10, 150)
-plt.plot(H0, Obf_lin(H0), label="Degeneracy")
-plt.plot(H0, Obf_sq(H0))
-plt.plot(H0, Obf_full(H0, DL))
+plt.plot(H0, Obf_lin(H0), label=r"$\propto 1/D_L$", color=sns.color_palette()[1])
 
-DL = c/H0_fid * lum_dist(1)
-plt.plot(H0, Obf_full(H0, DL))
-DL = c/H0_fid * lum_dist(2)
-plt.plot(H0, Obf_full(H0, DL))
-DL = c/H0_fid * lum_dist(3)
-plt.plot(H0, Obf_full(H0, DL))
+zs = [.1, 1, 2, 3]
+
+cmap = sns.color_palette("crest", n_colors=len(zs))
+plt.plot(H0, Obf_sq(H0), color=cmap[0], label=r"$\propto 1/D_L^2$")
+
+for z, color in zip(zs, cmap):
+    DL = c/H0_fid * lum_dist(z)
+    plt.plot(H0, Obf_full(H0, DL), color=color, label=f"Full solution for $z={z}$")  # $\langle DM \rangle(\Omega_\mathrm b f_\mathrm d , H_0)$
+
+# DL = c/H0_fid * lum_dist(1)
+# plt.plot(H0, Obf_full(H0, DL), label=f"$z=1$")
+# DL = c/H0_fid * lum_dist(2)
+# plt.plot(H0, Obf_full(H0, DL), label=f"$z=2$")
+# DL = c/H0_fid * lum_dist(3)
+# plt.plot(H0, Obf_full(H0, DL), label=f"$z=3$")
 
 plt.xlim(60, 80)
+plt.ylim(.02, .06)
 
 plt.xlabel("$H_0$")
 plt.ylabel(r"$\Omega_\mathrm{b}f_\mathrm{d}$")
+plt.legend()
+
+plt.savefig("../Data/Obf_vs_H0.pdf", bbox_inches='tight', pad_inches=0.01, dpi=300)

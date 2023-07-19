@@ -56,12 +56,21 @@ norm_p_H0 = quad(p_H0_unnorm, H0_points.min(), H0_points.max())[0]
 
 
 def log_p_H0(H0, Obf):
-    """Probability of Omega_b*f_d given H0"""
+    """Probability of Omega_b*f_d, H0."""
     log_p_H0 = np.where((H0_points.min() < ObHf(H0)/Obf) & (ObHf(H0)/Obf < H0_points.max()),
                      np.log(p_H0_unnorm(ObHf(H0)/Obf)/norm_p_H0), -np.inf)
 
     return log_p_H0
 
+
+def rectangle_integration(f, a, b, n=100):
+    """Integrate f from a to b using the rectangle rule
+
+    n : Number of rectangles.
+    """
+    dx = (b-a)/n
+    x = np.linspace(a+dx/2, b-dx/2, n)
+    return np.sum(f(x))*dx
 
 # x = np.linspace(ObHf_points.min()/70, ObHf_points.max()/70)
 # plt.plot(x, p_Obf(x, H0=70))
@@ -72,8 +81,8 @@ data = h5py.File(fn,'r')
 
 posterior_samples = data['C01:IMRPhenomPv2_NRTidal:LowSpin']['posterior_samples']
 DLum = posterior_samples['luminosity_distance']
-p_DL = gaussian_kde(DLum)
-# p_DL = lambda DL, *prior_args: p_DL(DL)
+p_DL_tmp = gaussian_kde(DLum)
+p_DL = lambda DL, *args: p_DL_tmp(DL)
 
 # Fixing values to the ones reported by James et al. 2022
 # (i.e. using delta function priors instead of marginalizing)
@@ -103,11 +112,17 @@ def z_of_DL(DL, H0):
 # plt.plot(DL, z_of_DL(DL, 70))
 # c = 299792.458
 # plt.plot(lum_dist(z2)*c/70/1000, z2)
-logn_norm = np.log(np.log10(np.e))-np.log(np.sqrt(2*np.pi))
+loglog10n_norm = np.log(np.log10(np.e))-np.log(np.sqrt(2*np.pi))
+log10n_norm = np.log10(np.e)/np.sqrt(2*np.pi)
 
 def log_log10_normal(x, mu, sigma):
-    """Probability density to measure a given host DM in the observers frame"""
-    return logn_norm - np.log(x*sigma) - (np.log10(x)-mu)**2/(2*sigma**2)
+    """Probability density to measure a given host DM in the host frame"""
+    return loglog10n_norm - np.log(x*sigma) - (np.log10(x)-mu)**2/(2*sigma**2)
+
+
+def log10_normal(x, mu, sigma):
+    """Probability density to measure a given host DM in the host frame"""
+    return log10n_norm / (x*sigma) * np.exp(-(np.log10(x)-mu)**2/(2*sigma**2))
 
 
 def average_DM(z, H0, Obf, Om=0.3):
@@ -220,7 +235,7 @@ def p_DMcosmic(DMcosmic, z, F, H0, Obf, Om):
         C0 = minimize_scalar(average_delta_minus_1, args=(sigma)).x
     else:
         C0 = [minimize_scalar(average_delta_minus_1, args=(sig)).x for sig in sigma]
-        C0 = np.array(C0)
+        C0 = np.array(C0).reshape(sigma.shape)
 
     # Calculate the normalization. This might not be needed.
     hyp_x = -C0**2/18/sigma**2
@@ -236,18 +251,47 @@ def p_DMcosmic(DMcosmic, z, F, H0, Obf, Om):
 
 
 def log_p_DM(DMexc, DMhost, DL, H0, Obf):
-    """Probability measureing a DM given the distance and parameters."""
+    """Unused. Probability measureing a DM given the distance and parameters."""
     z = z_of_DL(DL, H0)
-    log_p_DMhost = log_log10_normal(DMhost*(1+z), mu=mu_host, sigma=sigma_host)
+    log_p_DMhost = log10_normal(DMhost*(1+z), mu=mu_host, sigma=sigma_host)
     log_p = log_p_DMhost + log_p_DMcosmic(DMexc-DMhost, z, F, H0, Obf, Om=0.3)
     # integ = quad(p_product, 0.001, DMexc-0.001)
     return np.sum(log_p)
 
+def p_DM(DL, H0, Obf):
+    """Probability measureing a DM given the distance and parameters."""
+    z = z_of_DL(DL, H0)
+    if z.shape:
+        z = z[:, np.newaxis]
 
-def log_prior(DL, H0, Obf, prior_args):
+    p_DMhost = log10_normal(DMcosmic[..., ::-1]*(1+z), mu=mu_host, sigma=sigma_host)
+    integral = np.sum(p_DMhost*p_DMcosmic(DMcosmic, z, F, H0, Obf, Om=0.3), axis=-1)*dDM
+
+    return integral
+
+
+def initialize_integration(DMexc, DL_min, DL_max, n_rect_DM, n_rect_DL, p_DL_kwargs={}):
+    """Define global variables for integration that stay the same during one run"""
+    # Integral step and DMcosmos samples.
+    a, b = 0, DMexc
+    global dDM, DMcosmic
+    dDM = (b-a)/n_rect_DM
+    DMcosmic = np.linspace(a+dDM/2, b-dDM/2, n_rect_DM, axis=-1)
+    dDM = np.expand_dims(dDM, axis=-1)
+    DMcosmic = np.expand_dims(DMcosmic, axis=-2)
+
+    # Integral step and DL samples.
+    global dDL, DL_samples, p_DL_sampled
+    DL_min = np.where(DL_min > 0, DL_min, 0)
+    dDL = (DL_max-DL_min)/n_rect_DL
+    DL_samples = np.linspace(DL_min+dDL/2, DL_max-dDL/2, n_rect_DL)
+    p_DL_sampled = p_DL(DL_samples, **p_DL_kwargs)
+
+
+def log_prior(H0, Obf):
     """Define the combination of all prior probabilities."""
-    if np.all(0 < DL) and 10 < H0 < 500. and 0.0 < Obf < 1.0 :
-        return np.sum(np.log(p_DL(DL)))
+    if 10 < H0 < 150. and 0.0 < Obf < 0.2 :
+        return 0
     else:
         return -np.inf
 
@@ -262,47 +306,32 @@ def log_prior_DMhost(DMhost, DMexc):
     return log_prob
 
 
-def log_probability(theta, *args):
+def log_probability(theta):
     """Sum up all log probabilities"""
     # Extract parameters
-    H0, Obf, *DL_and_DMhost = theta
-    n_FRB = len(DL_and_DMhost)//2
-    DL = np.asarray(DL_and_DMhost[:n_FRB])
-    DMhost = np.asarray(DL_and_DMhost[n_FRB:])
+    H0, Obf = theta
 
-    # Extract aruments.
-    DMexc = args[0]
-    prior_args = args[1:]
-
-    lp = log_prior(DL, H0, Obf, prior_args)
-    lp += log_prior_DMhost(DMhost, DMexc)
+    lp = log_prior(H0, Obf) + log_p_H0(H0, Obf)
 
     # Evaluate the likelihood, only if the prior is non-infinite.
     if np.isfinite(lp):
-        log_prob = lp + log_p_H0(H0, Obf) + log_p_DM(DMexc, DMhost, DL, H0, Obf)
+        # Integrate over DL.
+        log_prob = lp + np.sum(np.log(np.sum(p_DL_sampled*p_DM(DL_samples, H0, Obf)*dDL, axis=-1)))
     else:
         log_prob = -np.inf
     return log_prob
 
 
-def log_probability_without_FRBs(theta, *args):
+def log_probability_without_FRBs(theta):
     """Sum up all log probabilities"""
     # Extract parameters
-    H0, Obf, *DL_and_DMhost = theta
-    n_FRB = len(DL_and_DMhost)//2
-    DL = np.asarray(DL_and_DMhost[:n_FRB])
-    DMhost = np.asarray(DL_and_DMhost[n_FRB:])
+    H0, Obf = theta
 
-    # Extract aruments.
-    DMexc = args[0]
-    prior_args = args[1:]
-
-    lp = log_prior(DL, H0, Obf, prior_args)
-    lp += log_prior_DMhost(DMhost, DMexc)
+    lp = log_prior(H0, Obf)
 
     # Evaluate the likelihood, only if the prior is non-infinite.
     if np.isfinite(lp):
-        log_prob = lp + log_p_DM(DMexc, DMhost, DL, H0, Obf)
+        log_prob = lp + np.sum(np.log(np.sum(p_DL_sampled*p_DM(DL_samples, H0, Obf)*dDL, axis=-1)))
     else:
         log_prob = -np.inf
     return log_prob
@@ -328,25 +357,29 @@ def log_p_H0_with_prior(theta):
 
 if __name__ == '__main__':
     DMexc_ne2001 = 79.4
-    nwalkers = 100
+    nwalkers = 24
     rng = np.random.default_rng()
-    DL_init = rng.normal(DLum.mean(), 10, size=nwalkers)
+    # DL_init = rng.normal(DLum.mean(), 10, size=nwalkers)
+    n_rect_DL = 100
+    n_rect_DM = 120
+    initialize_integration(DMexc=DMexc_ne2001, DL_min=DLum.min(), DL_max=DLum.max(),
+                           n_rect_DM=n_rect_DM, n_rect_DL=n_rect_DL)
+
     H0_init = rng.normal(70, 5, size=nwalkers)
     Obf_init = rng.normal(0.035, 0.005, size=nwalkers)
-    DMhost_init = rng.uniform(0, DMexc_ne2001, size=nwalkers)
-    initial = np.stack((H0_init, Obf_init, DL_init, DMhost_init), axis=1)
+    initial = np.stack((H0_init, Obf_init,), axis=1)
     # initial = [DL_init, H0_init, Obf_init, DMhost_init]
     nwalkers, ndim = initial.shape
-    nsteps = 100000
+    nsteps = 20000
 
     # Set up a backend to save the chains to.
     filename = f"../Data/real_FRB_{nwalkers}x{nsteps}steps.h5"
     backend = emcee.backends.HDFBackend(filename)
 
     with Pool() as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(DMexc_ne2001,),
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
                                         backend=backend, pool=pool)
-        sampler.run_mcmc(initial, nsteps, progress=True)
+        sampler.run_mcmc(initial, nsteps, progress=True, progress_kwargs={'mininterval':5})
 
     tau = sampler.get_autocorr_time()
     print(tau)

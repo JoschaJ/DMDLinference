@@ -30,12 +30,12 @@ def Obf_full(H0, DL):
 
 
 H0 = np.linspace(10, 150)
-plt.plot(H0, Obf_lin(H0), label=r"$\propto 1/D_L$", color=sns.color_palette()[1])
+plt.plot(H0, Obf_lin(H0), label=r"$\propto 1/H_0$", color=sns.color_palette()[1])
 
 zs = [.1, 1, 2, 3]
 
 cmap = sns.color_palette("crest", n_colors=len(zs))
-plt.plot(H0, Obf_sq(H0), color=cmap[0], label=r"$\propto 1/D_L^2$")
+plt.plot(H0, Obf_sq(H0), color=cmap[0], label=r"$\propto 1/H_0^2$")
 
 for z, color in zip(zs, cmap):
     DL = c/H0_fid * lum_dist(z)

@@ -135,7 +135,7 @@ def p_DL(DL_samps, **kwargs):
 
 if __name__ == '__main__':
     # Simulate FRBs.
-    n_FRBs = 100
+    n_FRBs = 10
 
     c = 299792.458
     Obf = .049*0.844
@@ -146,6 +146,10 @@ if __name__ == '__main__':
     DM0 = 10**mu_host
     sigma_host = 0.57
     F = 0.32
+    mcmc.mu_host = mu_host
+    mcmc.sigma_host = sigma_host
+    mcmc.F = F
+
     DL_mean = c/H0*lum_dist(z_mean, Om=0.3)
     sigma_DL = 0.1*DL_mean
     DL_meas, DMexc, DM_host = simulate_FRBs(n_FRBs, z_mean=z_mean, z_sigma=0, sigma_DL=sigma_DL, Obf=Obf,
@@ -169,7 +173,7 @@ if __name__ == '__main__':
     initial = np.concatenate((H0_init, Obf_init), axis=1)
 
     ndim = 2
-    nsteps = 50
+    nsteps = 500
 
     # Set up a backend to save the chains to.
     filename = f"../Data/simulated_{n_FRBs}FRBs_z{z_mean}_{nwalkers}x{nsteps}steps.h5"

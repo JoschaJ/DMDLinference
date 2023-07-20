@@ -14,13 +14,13 @@ import matplotlib.lines as mlines
 import seaborn as sns
 
 # Load results from inference on simulated FRB-GW events.
-filename = "../Data/simulated_10FRBs_100x50000steps.h5"
+filename = "../Data/simulated_10FRBs_z1_24x500steps.h5"
 sampler = emcee.backends.HDFBackend(filename)
 
-# tau = sampler.get_autocorr_time()
-# burnin = int(2 * np.max(tau))
+tau = sampler.get_autocorr_time()
+burnin = int(2 * np.max(tau))
 
-samples = sampler.get_chain(discard=10000)
+samples = sampler.get_chain(discard=burnin)
 
 # Results from only James
 filename1 = "../Data/James_prior_100x50000steps.h5"
@@ -32,13 +32,13 @@ burnin = int(2 * np.max(tau))
 samples_J = sampler_J.get_chain(discard=burnin)
 
 # Results without taking James et al. into account.
-filename2 = "../Data/simulated_noz_10FRBs_100x50000steps.h5"
+filename2 = "../Data/simulated_noz_10FRBs_z1_24x500steps.h5"
 sampler_noz = emcee.backends.HDFBackend(filename2)
 
-# tau = sampler_noz.get_autocorr_time()
-# burnin = int(2 * np.max(tau))
+tau = sampler_noz.get_autocorr_time()
+burnin = int(2 * np.max(tau))
 
-samples_noz = sampler_noz.get_chain(discard=10000)
+samples_noz = sampler_noz.get_chain(discard=burnin)
 
 # Plot corner plot with all DMs and D_Ls
 # labels=(['$H_0$', r'$\Omega_b f_d$']
@@ -46,6 +46,7 @@ samples_noz = sampler_noz.get_chain(discard=10000)
 #         + [r"DM$_\mathrm{host}$"+f"{str(frb)}" for frb in range(n_FRBs)]
 #         )
 # fig = corner.corner(sampler, labels=labels, truths=[H0, Obf, *DL_meas, *DM_host])
+
 labels=(['$H_0$', r'$\Omega_b f_d$'])
 
 cm2 = sns.color_palette('deep') #plt.get_cmap('tab10')
@@ -70,7 +71,7 @@ plot_kwargs = dict(labels=labels,
                    )
 fig = corner.corner(samples_J.swapaxes(0,1),
                     color=cm2[2],
-                    hist_kwargs={'density' : True, 'lw' : 2.},
+                    hist_kwargs={'density' : True, 'lw' : 2., 'label' : "FRB-z priors"},
                     contour_kwargs={'linewidths' : .5, 'colors' : [cm2[2]]},
                     contourf_kwargs={'colors' : color_set[0],},
                     **plot_kwargs,
@@ -78,7 +79,7 @@ fig = corner.corner(samples_J.swapaxes(0,1),
 fig = corner.corner(samples_noz[:,:,:2].swapaxes(0,1),
                     color=cm2[1],
                     fig=fig,
-                    hist_kwargs={'density' : True, 'lw' : 2.},
+                    hist_kwargs={'density' : True, 'lw' : 2., 'label' : "FRB-GW constraints only"},
                     contour_kwargs={'linewidths' : .5, 'colors' : [cm2[1]]},
                     contourf_kwargs={'colors' : color_set[1],},
                     **plot_kwargs,
@@ -86,24 +87,25 @@ fig = corner.corner(samples_noz[:,:,:2].swapaxes(0,1),
 fig = corner.corner(samples[:,:,:2].swapaxes(0,1),
                     color=cm2[0],
                     fig=fig,
-                    hist_kwargs={'density' : True, 'lw' : 2.},
+                    hist_kwargs={'density' : True, 'lw' : 2., 'label' : "Combined constraints"},
                     contour_kwargs={'linewidths' : .5, 'colors' : [cm2[0]]},
                     contourf_kwargs={'colors' : color_set[2],},
                     **plot_kwargs
                     )
-sample_labels = ["Combined constraints",
-                 "FRB-GW constraints only",
-                 "FRB-z priors"
-                 ]
-plt.legend(
-        handles=[
-            mlines.Line2D([], [], color=cm2[i], label=sample_labels[i])
-            for i in range(len(sample_labels))
-        ],
-        # fontsize=20, frameon=False,
-        bbox_to_anchor=(1, 2),
-        loc="upper right"
-    )
+# sample_labels = ["Combined constraints",
+#                  "FRB-GW constraints only",
+#                  "FRB-z priors"
+#                  ]
+plt.legend(bbox_to_anchor=(1.05, 2), loc="upper right")
+# plt.legend(
+#         handles=[
+#             mlines.Line2D([], [], color=cm2[i], label=sample_labels[i])
+#             for i in range(len(sample_labels))
+#         ],
+#         # fontsize=20, frameon=False,
+#         bbox_to_anchor=(1.15, 2),
+#         loc="upper right"
+#     )
 
 fig_path = os.path.splitext(filename)[0] + ".png"
 fig.savefig(fig_path, bbox_inches='tight', pad_inches=0.01, dpi=300)

@@ -84,12 +84,6 @@ DLum = posterior_samples['luminosity_distance']
 p_DL_tmp = gaussian_kde(DLum)
 p_DL = lambda DL, *args: p_DL_tmp(DL)
 
-# Fixing values to the ones reported by James et al. 2022
-# (i.e. using delta function priors instead of marginalizing)
-mu_host = 2.23
-sigma_host = 0.57
-F = 0.32
-#f_igm = 0.83
 
 def lum_dist(z, Om=0.3):
     """The luminosity distance for a flat LCDM universe in units of the hubble distance"""
@@ -258,13 +252,14 @@ def log_p_DM(DMexc, DMhost, DL, H0, Obf):
     # integ = quad(p_product, 0.001, DMexc-0.001)
     return np.sum(log_p)
 
+
 def p_DM(DL, H0, Obf):
     """Probability measureing a DM given the distance and parameters."""
     z = z_of_DL(DL, H0)
     if z.shape:
         z = z[:, np.newaxis]
 
-    p_DMhost = log10_normal(DMcosmic[..., ::-1]*(1+z), mu=mu_host, sigma=sigma_host)
+    p_DMhost = (1+z)*log10_normal(DMcosmic[..., ::-1]*(1+z), mu=mu_host, sigma=sigma_host)
     integral = np.sum(p_DMhost*p_DMcosmic(DMcosmic, z, F, H0, Obf, Om=0.3), axis=-1)*dDM
 
     return integral
@@ -357,6 +352,14 @@ def log_p_H0_with_prior(theta):
 
 if __name__ == '__main__':
     DMexc_ne2001 = 79.4
+
+    # Fixing values to the ones reported by James et al. 2022
+    # (i.e. using delta function priors instead of marginalizing)
+    mu_host = 2.23
+    sigma_host = 0.57
+    F = 0.32
+    #f_igm = 0.83
+
     nwalkers = 24
     rng = np.random.default_rng()
     # DL_init = rng.normal(DLum.mean(), 10, size=nwalkers)

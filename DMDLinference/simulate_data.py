@@ -141,7 +141,7 @@ if __name__ == '__main__':
     Obf = .049*0.844
     H0 = 70
     Om = 0.3
-    z_mean = 1
+    z_mean = .1
     mu_host = 2.23
     DM0 = 10**mu_host
     sigma_host = 0.57
@@ -151,7 +151,7 @@ if __name__ == '__main__':
     mcmc.F = F
 
     DL_mean = c/H0*lum_dist(z_mean, Om=0.3)
-    sigma_DL = 0.1*DL_mean
+    sigma_DL = 0.4*DL_mean
     DL_meas, DMexc, DM_host = simulate_FRBs(n_FRBs, z_mean=z_mean, z_sigma=0, sigma_DL=sigma_DL, Obf=Obf,
                                    H0=H0, F=F, Om=Om, DM0=DM0, sigma_host=sigma_host)
 
@@ -173,10 +173,10 @@ if __name__ == '__main__':
     initial = np.concatenate((H0_init, Obf_init), axis=1)
 
     ndim = 2
-    nsteps = 500
+    nsteps = 10000
 
     # Set up a backend to save the chains to.
-    filename = f"../Data/simulated_{n_FRBs}FRBs_z{z_mean}_{nwalkers}x{nsteps}steps.h5"
+    filename = f"../Data/simulated_{n_FRBs}FRBs_z{z_mean}_eDL0.4_{nwalkers}x{nsteps}steps.h5"
     backend = emcee.backends.HDFBackend(filename)
     # backend.reset(nwalkers, ndim)
 
@@ -201,7 +201,7 @@ if __name__ == '__main__':
     #     sampler_J2.run_mcmc(initial_J, nsteps_J, progress=True, progress_kwargs={'mininterval':5})
 
     # Sample the GW-FRB posterior without the FRB-z prior.
-    filename = f"../Data/simulated_noz_{n_FRBs}FRBs_z{z_mean}_{nwalkers}x{nsteps}steps.h5"
+    filename = f"../Data/simulated_noz_{n_FRBs}FRBs_z{z_mean}_eDL0.4_{nwalkers}x{nsteps}steps.h5"
     backend = emcee.backends.HDFBackend(filename)
 
     with Pool() as pool:

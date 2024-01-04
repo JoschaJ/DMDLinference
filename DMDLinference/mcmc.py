@@ -380,7 +380,7 @@ if __name__ == '__main__':
     backend = emcee.backends.HDFBackend(filename)
 
     with Pool() as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability_without_FRBs,
                                         backend=backend, pool=pool)
         sampler.run_mcmc(initial, nsteps, progress=True, progress_kwargs={'mininterval':5})
 

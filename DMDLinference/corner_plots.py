@@ -14,13 +14,13 @@ import matplotlib.lines as mlines
 import seaborn as sns
 
 # Load results from inference on simulated FRB-GW events.
-filename = "../Data/simulated_10FRBs_z1_24x500steps.h5"
+filename = "../Data/simulated_10FRBs_z0.1_24x10000steps.h5"
 sampler = emcee.backends.HDFBackend(filename)
 
-tau = sampler.get_autocorr_time()
-burnin = int(2 * np.max(tau))
+#tau = sampler.get_autocorr_time()
+#burnin = int(2 * np.max(tau))
 
-samples = sampler.get_chain(discard=burnin)
+samples = sampler.get_chain(discard=1000)
 
 # Results from only James
 filename1 = "../Data/James_prior_100x50000steps.h5"
@@ -32,13 +32,13 @@ burnin = int(2 * np.max(tau))
 samples_J = sampler_J.get_chain(discard=burnin)
 
 # Results without taking James et al. into account.
-filename2 = "../Data/simulated_noz_10FRBs_z1_24x500steps.h5"
+filename2 = "../Data/simulated_noz_10FRBs_z0.1_24x10000steps.h5"
 sampler_noz = emcee.backends.HDFBackend(filename2)
 
-tau = sampler_noz.get_autocorr_time()
-burnin = int(2 * np.max(tau))
+#tau = sampler_noz.get_autocorr_time()
+#burnin = int(2 * np.max(tau))
 
-samples_noz = sampler_noz.get_chain(discard=burnin)
+samples_noz = sampler_noz.get_chain(discard=1000)
 
 # Plot corner plot with all DMs and D_Ls
 # labels=(['$H_0$', r'$\Omega_b f_d$']

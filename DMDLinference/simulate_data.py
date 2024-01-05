@@ -5,11 +5,13 @@ Created on Mon Jun 26 14:08:54 2023
 
 @author: jjahns
 """
+import os
 import numpy as np
 import emcee
 import corner
 
 import mcmc
+import config
 
 from multiprocessing import Pool
 from scipy.stats import norm
@@ -176,7 +178,7 @@ if __name__ == '__main__':
     nsteps = 10000
 
     # Set up a backend to save the chains to.
-    filename = f"../Data/simulated_{n_FRBs}FRBs_z{z_mean}_eDL0.4_{nwalkers}x{nsteps}steps.h5"
+    filename = os.path.join(config.DATA_DIR, f"simulated_{n_FRBs}FRBs_z{z_mean}_eDL0.4_{nwalkers}x{nsteps}steps.h5")
     backend = emcee.backends.HDFBackend(filename)
     # backend.reset(nwalkers, ndim)
 
@@ -189,7 +191,7 @@ if __name__ == '__main__':
     # ndim_J = 2
     # nsteps_J = 500_000
 
-    # filename = f"../Data/James_prior_{nwalkers}x{nsteps}steps.h5"
+    # filename = os.path.join(config.DATA_DIR, f"James_prior_{nwalkers}x{nsteps}steps.h5")
     # backend = emcee.backends.HDFBackend(filename)
 
     # initial_J = np.concatenate((H0_init, Obf_init), axis=1)
@@ -201,7 +203,7 @@ if __name__ == '__main__':
     #     sampler_J2.run_mcmc(initial_J, nsteps_J, progress=True, progress_kwargs={'mininterval':5})
 
     # Sample the GW-FRB posterior without the FRB-z prior.
-    filename = f"../Data/simulated_noz_{n_FRBs}FRBs_z{z_mean}_eDL0.4_{nwalkers}x{nsteps}steps.h5"
+    filename = os.path.join(config.DATA_DIR, f"simulated_noz_{n_FRBs}FRBs_z{z_mean}_eDL0.4_{nwalkers}x{nsteps}steps.h5")
     backend = emcee.backends.HDFBackend(filename)
 
     with Pool() as pool:

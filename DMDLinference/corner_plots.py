@@ -13,8 +13,10 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 import seaborn as sns
 
+import config
+
 # Load results from inference on simulated FRB-GW events.
-filename = "../Data/simulated_10FRBs_z0.1_24x10000steps.h5"
+filename = os.path.join(config.DATA_DIR, "simulated_10FRBs_z0.1_24x10000steps.h5")
 sampler = emcee.backends.HDFBackend(filename)
 
 #tau = sampler.get_autocorr_time()
@@ -23,7 +25,7 @@ sampler = emcee.backends.HDFBackend(filename)
 samples = sampler.get_chain(discard=1000)
 
 # Results from only James
-filename1 = "../Data/James_prior_100x50000steps.h5"
+filename1 = os.path.join(config.DATA_DIR, "James_prior_100x50000steps.h5")
 sampler_J = emcee.backends.HDFBackend(filename1)
 
 tau = sampler_J.get_autocorr_time()
@@ -32,7 +34,7 @@ burnin = int(2 * np.max(tau))
 samples_J = sampler_J.get_chain(discard=burnin)
 
 # Results without taking James et al. into account.
-filename2 = "../Data/simulated_noz_10FRBs_z0.1_24x10000steps.h5"
+filename2 = os.path.join(config.DATA_DIR, "simulated_noz_10FRBs_z0.1_24x10000steps.h5")
 sampler_noz = emcee.backends.HDFBackend(filename2)
 
 #tau = sampler_noz.get_autocorr_time()
@@ -47,7 +49,7 @@ samples_noz = sampler_noz.get_chain(discard=1000)
 #         )
 # fig = corner.corner(sampler, labels=labels, truths=[H0, Obf, *DL_meas, *DM_host])
 
-labels=(['$H_0$', r'$\Omega_b f_d$'])
+labels=(['$H_0$', r'$\Omega_b h^2 f_d$'])
 
 cm2 = sns.color_palette('deep') #plt.get_cmap('tab10')
 cm = sns.color_palette('pastel')

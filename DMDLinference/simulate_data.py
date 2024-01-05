@@ -19,7 +19,7 @@ from scipy.stats import norm
 from mcmc import p_DMcosmic, lum_dist, log_probability, log_p_H0_with_prior
 from mcmc import log_probability_without_FRBs, initialize_integration
 
-def draw_DM(frb_zs, Obf=0.035, H0=70, F=0.32, Om=0.3, DM0=100, sigma_host=1, rng=None):
+def draw_DM(frb_zs, Obhsqf=0.017, H0=70, F=0.32, Om=0.3, DM0=100, sigma_host=1, rng=None):
     """Draw a DM for each given reshift.
 
     Given the parameter values from this function simulates the DM.
@@ -42,7 +42,7 @@ def draw_DM(frb_zs, Obf=0.035, H0=70, F=0.32, Om=0.3, DM0=100, sigma_host=1, rng
         rng = np.random.default_rng()
 
     # Draw a Delta from it's PDF. Multiply by <DM_cosmic> to get a DM.
-    dm_cosmic = [float(draw_DM_cosmic(z, Obf=Obf, H0=H0, F=F, Om=Om, n_samples=1, rng=rng))
+    dm_cosmic = [float(draw_DM_cosmic(z, Obhsqf=Obhsqf, H0=H0, F=F, Om=Om, n_samples=1, rng=rng))
                  for z in frb_zs]
 
     # Draw a DM_host.
@@ -51,7 +51,7 @@ def draw_DM(frb_zs, Obf=0.035, H0=70, F=0.32, Om=0.3, DM0=100, sigma_host=1, rng
     return dm_host/(1+frb_zs) + dm_cosmic, dm_host
 
 
-def draw_DM_cosmic(z, Obf=0.035, H0=70, F=0.32, Om=0.3, n_samples=1, rng=None):
+def draw_DM_cosmic(z, Obhsqf=0.017, H0=70, F=0.32, Om=0.3, n_samples=1, rng=None):
     """Draw DM from p_cosmic.
 
     Following Macquart et al. 2020 the PDF can be described by their
@@ -74,7 +74,7 @@ def draw_DM_cosmic(z, Obf=0.035, H0=70, F=0.32, Om=0.3, n_samples=1, rng=None):
     # Create 20000 values of the PDF to create the inverse from.
     DM_values = np.linspace(1/1000., 10000., 20000)
 
-    pdf = p_DMcosmic(DM_values, z, F, H0, Obf=Obf, Om=Om)
+    pdf = p_DMcosmic(DM_values, z, F, H0, Obhsqf=Obhsqf, Om=Om)
 
     # Invert the CDF.
     cum_values = pdf.cumsum()/pdf.sum()
@@ -103,14 +103,14 @@ def positive_normal(loc, scale, size=None, rng=None):
     return var
 
 
-def simulate_FRBs(n_draw, z_mean, z_sigma, sigma_DL, Obf=0.035, H0=70, F=0.32, Om=0.3, DM0=100,
+def simulate_FRBs(n_draw, z_mean, z_sigma, sigma_DL, Obhsqf=0.017, H0=70, F=0.32, Om=0.3, DM0=100,
                   sigma_host=1):
     c = 299792.458
 
     rng = np.random.default_rng()
     zs = positive_normal(loc=z_mean, scale=z_sigma, size=n_draw, rng=rng)
 
-    DMs, DM_host = draw_DM(zs, Obf=Obf, H0=H0, F=F, Om=Om, DM0=DM0, sigma_host=sigma_host, rng=rng)
+    DMs, DM_host = draw_DM(zs, Obhsqf=Obhsqf, H0=H0, F=F, Om=Om, DM0=DM0, sigma_host=sigma_host, rng=rng)
 
     DL_mean = c/H0*lum_dist(zs, Om)  # in Mpc, 20% uncertainty
     DL = positive_normal(loc=DL_mean, scale=sigma_DL, rng=rng)
@@ -118,11 +118,11 @@ def simulate_FRBs(n_draw, z_mean, z_sigma, sigma_DL, Obf=0.035, H0=70, F=0.32, O
     return DL, DMs, DM_host
 
 
-# def log_prior(DL, H0, Obf, prior_args):
+# def log_prior(DL, H0, Obhsqf, prior_args):
 #     """Redefine prior probabilities for our D_L."""
 #     DL_meas = prior_args[0]  #np.asarray(prior_args[:len(DL)//2])
 #     sigma_DL = prior_args[1]  #np.asarray(prior_args[len(DL)//2:])
-#     if np.all(0 < DL) and 10 < H0 < 150. and 0.0 < Obf < 0.2 :
+#     if np.all(0 < DL) and 10 < H0 < 150. and 0.0 < Obhsqf < 0.1 :
 #         return np.sum(- np.log(sigma_DL*np.sqrt(2*np.pi)) - (DL-DL_meas)**2/(2*sigma_DL**2))
 #     else:
 #         return -np.inf
@@ -140,7 +140,7 @@ if __name__ == '__main__':
     n_FRBs = 10
 
     c = 299792.458
-    Obf = .049*0.844
+    Obhsqf = .025*0.844
     H0 = 70
     Om = 0.3
     z_mean = .1
@@ -154,7 +154,7 @@ if __name__ == '__main__':
 
     DL_mean = c/H0*lum_dist(z_mean, Om=0.3)
     sigma_DL = 0.4*DL_mean
-    DL_meas, DMexc, DM_host = simulate_FRBs(n_FRBs, z_mean=z_mean, z_sigma=0, sigma_DL=sigma_DL, Obf=Obf,
+    DL_meas, DMexc, DM_host = simulate_FRBs(n_FRBs, z_mean=z_mean, z_sigma=0, sigma_DL=sigma_DL, Obhsqf=Obhsqf,
                                    H0=H0, F=F, Om=Om, DM0=DM0, sigma_host=sigma_host)
 
     # Redefine prior for our D_L distributions.
@@ -171,11 +171,11 @@ if __name__ == '__main__':
     nwalkers = 24
     rng = np.random.default_rng()
     H0_init = rng.normal(70, 10, size=(nwalkers, 1))
-    Obf_init = rng.normal(Obf, 0.005, size=(nwalkers, 1))
-    initial = np.concatenate((H0_init, Obf_init), axis=1)
+    Obhsqf_init = rng.normal(Obhsqf, 0.0025, size=(nwalkers, 1))
+    initial = np.concatenate((H0_init, Obhsqf_init), axis=1)
 
     ndim = 2
-    nsteps = 10000
+    nsteps = 1000
 
     # Set up a backend to save the chains to.
     filename = os.path.join(config.DATA_DIR, f"simulated_{n_FRBs}FRBs_z{z_mean}_eDL0.4_{nwalkers}x{nsteps}steps.h5")
@@ -189,12 +189,12 @@ if __name__ == '__main__':
 
     # # Sample the James prior.
     # ndim_J = 2
-    # nsteps_J = 500_000
+    # nsteps_J = 50_000
 
-    # filename = os.path.join(config.DATA_DIR, f"James_prior_{nwalkers}x{nsteps}steps.h5")
+    # filename = os.path.join(config.DATA_DIR, f"James_prior_{nwalkers}x{nsteps_J}steps.h5")
     # backend = emcee.backends.HDFBackend(filename)
 
-    # initial_J = np.concatenate((H0_init, Obf_init), axis=1)
+    # initial_J = np.concatenate((H0_init, Obhsqf_init), axis=1)
 
     # # Test log_p James
     # with Pool() as pool:
@@ -210,6 +210,3 @@ if __name__ == '__main__':
         sampler_noz = emcee.EnsembleSampler(nwalkers, ndim, log_probability_without_FRBs,
                                             backend=backend, pool=pool)
         sampler_noz.run_mcmc(initial, nsteps, progress=True, progress_kwargs={'mininterval':5})
-
-
-

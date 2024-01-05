@@ -41,7 +41,7 @@ def log_p_H0(H0, Obhsqf):
     """Probability of H0 given Omega_b*h^2*f_d."""
     translated_H0 = H0*james_const/Obhsqf
     log_p_H0 = np.where((H0_points.min() < translated_H0) & (translated_H0 < H0_points.max()),
-                     np.log(p_H0_unnorm(translated_H0)/norm_p_H0), -np.inf)
+                     np.log(p_H0_unnorm(translated_H0)*james_const/Obhsqf/norm_p_H0), -np.inf)
 
     return log_p_H0
 
@@ -251,7 +251,7 @@ def log_probability_without_FRBs(theta):
 def log_p_H0_with_prior(theta):
     """p(Obf,H_0) with a prior to plot contours from only the FRB-z"""
     H0, Obhsqf = theta
-    if .1 < H0 < 150. and 0.0 < Obhsqf < .5:
+    if .1 < H0 < 150. and 0.0 < Obhsqf < 1.:
         return log_p_H0(H0, Obhsqf)
     else:
         return -np.inf

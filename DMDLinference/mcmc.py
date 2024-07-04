@@ -38,7 +38,11 @@ james_const = 0.02242*0.844
 
 
 def log_p_H0(H0, Obhsqf):
-    """Probability of H0 given Omega_b*h^2*f_d."""
+    """Probability of H0 given Omega_b*h^2*f_d.
+
+    To not have to change everything I leave the dependency as is although it
+    should only depend on ObfH0.
+    """
     translated_H0 = H0*james_const/Obhsqf
     log_p_H0 = np.where((H0_points.min() < translated_H0) & (translated_H0 < H0_points.max()),
                      np.log(p_H0_unnorm(translated_H0)*james_const/Obhsqf/norm_p_H0), -np.inf)
@@ -88,21 +92,21 @@ def log10_normal(x, mu, sigma):
     return log10n_norm / (x*sigma) * np.exp(-(np.log10(x)-mu)**2/(2*sigma**2))
 
 
-def average_DM(z, H0, Obhsqf, Om=0.3):
-    free_elec = 0.875
+free_elec = 0.875
 
-    coeff_top = 3 * const.c
-    coeff_bot = 8 * np.pi * const.G * const.m_p
-    coeff = coeff_top / coeff_bot
-    coeff = coeff.to("pc Mpc s cm**-3 km**-1").value  # Unit of DM/H_0
+coeff_top = 3 * const.c
+coeff_bot = 8 * np.pi * const.G * const.m_p
+COEFF = coeff_top / coeff_bot
+COEFF = COEFF.to("pc Mpc s cm**-3 km**-1").value  # Unit of DM/H_0
 
+def average_DM(z, ObfH0, Om=0.3):
     # Use the (flat universe) analytic solution of the integral over (1+z)/E(z)
     Ode = 1-Om
     int_1pz_efunc = lambda z: (1/2 * (z+1) * (z+1) * hyp2f1(1/2, 2/3, 5/3, -Om*(z+1)**3/Ode)
                            / np.sqrt(Ode))
     integrand = int_1pz_efunc(z) - int_1pz_efunc(0)
 
-    return coeff * Obhsqf * 10000 / H0 * free_elec * integrand
+    return COEFF * ObfH0 * free_elec * integrand
 
 
 gamma133 = gamma(1/3)*3
@@ -125,7 +129,7 @@ def average_delta_minus_1(C0, sigma):
     return np.abs(avrg_DM-1)
 
 
-def p_DMcosmic(DMcosmic, z, F, H0, Obhsqf, Om):
+def p_DMcosmic(DMcosmic, z, F, ObfH0, Om):
     """Stolen from frb.dm.cosmic
     PDF(Delta) following the McQuinn formalism describing the DM_cosmic PDF
 
@@ -145,7 +149,7 @@ def p_DMcosmic(DMcosmic, z, F, H0, Obhsqf, Om):
         float or np.ndarray:
     """
     # Calculate Delta from the mean DM.
-    avrg_DM = average_DM(z, H0=H0, Obhsqf=Obhsqf, Om=Om)
+    avrg_DM = average_DM(z, ObfH0=ObfH0, Om=Om)
     delta = DMcosmic/avrg_DM
 
     # Calculate C_0 for the given z.
@@ -169,14 +173,14 @@ def p_DMcosmic(DMcosmic, z, F, H0, Obhsqf, Om):
     return pdf
 
 
-def p_DM(DL, H0, Obhsqf):
+def p_DM(DL, H0, ObfH0):
     """Probability measureing a DM given the distance and parameters."""
     z = z_of_DL(DL, H0)
     if z.shape:
         z = z[:, np.newaxis]
 
     p_DMhost = (1+z)*log10_normal(DMcosmic[..., ::-1]*(1+z), mu=mu_host, sigma=sigma_host)
-    integral = np.sum(p_DMhost*p_DMcosmic(DMcosmic, z, F, H0, Obhsqf, Om=0.3), axis=-1)*dDM
+    integral = np.sum(p_DMhost*p_DMcosmic(DMcosmic, z, F, ObfH0, Om=0.3), axis=-1)*dDM
 
     return integral
 
@@ -221,13 +225,15 @@ def log_probability(theta):
     """Sum up all log probabilities"""
     # Extract parameters
     H0, Obhsqf = theta
+    ObfH0 = Obhsqf * 10000 / H0
+    Obf = ObfH0 / H0
 
     lp = log_prior(H0, Obhsqf) + log_p_H0(H0, Obhsqf)
 
     # Evaluate the likelihood, only if the prior is non-infinite.
     if np.isfinite(lp):
         # Integrate over DL.
-        log_prob = lp + np.sum(np.log(np.sum(p_DL_sampled*p_DM(DL_samples, H0, Obhsqf)*dDL, axis=-1)))
+        log_prob = lp + np.sum(np.log(np.sum(p_DL_sampled*p_DM(DL_samples, H0, ObfH0)*dDL, axis=-1)))
     else:
         log_prob = -np.inf
     return log_prob
@@ -237,12 +243,14 @@ def log_probability_without_FRBs(theta):
     """Sum up all log probabilities"""
     # Extract parameters
     H0, Obhsqf = theta
+    ObfH0 = Obhsqf * 10000 / H0
+    Obf = ObfH0 / H0
 
     lp = log_prior(H0, Obhsqf)
 
     # Evaluate the likelihood, only if the prior is non-infinite.
     if np.isfinite(lp):
-        log_prob = lp + np.sum(np.log(np.sum(p_DL_sampled*p_DM(DL_samples, H0, Obhsqf)*dDL, axis=-1)))
+        log_prob = lp + np.sum(np.log(np.sum(p_DL_sampled*p_DM(DL_samples, H0, ObfH0)*dDL, axis=-1)))
     else:
         log_prob = -np.inf
     return log_prob
@@ -251,6 +259,7 @@ def log_probability_without_FRBs(theta):
 def log_p_H0_with_prior(theta):
     """p(Obf,H_0) with a prior to plot contours from only the FRB-z"""
     H0, Obhsqf = theta
+    # Obf = Obhsqf * 10000 / H0**2
     if .1 < H0 < 150. and 0.0 < Obhsqf < 1.:
         return log_p_H0(H0, Obhsqf)
     else:
@@ -275,20 +284,20 @@ if __name__ == '__main__':
     initialize_integration(DMexc=DMexc_ne2001, DL_min=DLum.min(), DL_max=DLum.max(),
                            n_rect_DM=n_rect_DM, n_rect_DL=n_rect_DL)
 
-    H0_init = rng.normal(70, 5, size=nwalkers)
     h_init = 0.7
+    H0_init = rng.normal(h_init*100, 5, size=nwalkers)
     Obhsqf_init = rng.normal(0.035*h_init**2, 0.005*h_init**2, size=nwalkers)
     initial = np.stack((H0_init, Obhsqf_init,), axis=1)
     # initial = [DL_init, H0_init, Obhsqf_init, DMhost_init]
     nwalkers, ndim = initial.shape
-    nsteps = 20000
+    nsteps = 5000
 
     # Set up a backend to save the chains to.
     filename = os.path.join(config.DATA_DIR, f"real_FRB_{nwalkers}x{nsteps}steps.h5")
     backend = emcee.backends.HDFBackend(filename)
 
     with Pool() as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability_without_FRBs,
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
                                         backend=backend, pool=pool)
         sampler.run_mcmc(initial, nsteps, progress=True, progress_kwargs={'mininterval':5})
 

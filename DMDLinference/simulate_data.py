@@ -16,7 +16,7 @@ import config
 from multiprocessing import Pool
 from scipy.stats import norm
 
-from mcmc import p_DMcosmic, lum_dist, log_probability, log_p_H0_with_prior
+from mcmc import p_DMcosmic, lum_dist, log_probability, log_p_H0_with_prior, log_prior
 from mcmc import log_probability_without_FRBs, initialize_integration
 
 def draw_DM(frb_zs, Obhsqf=0.017, H0=70, F=0.32, Om=0.3, DM0=100, sigma_host=1, rng=None):
@@ -74,7 +74,8 @@ def draw_DM_cosmic(z, Obhsqf=0.017, H0=70, F=0.32, Om=0.3, n_samples=1, rng=None
     # Create 20000 values of the PDF to create the inverse from.
     DM_values = np.linspace(1/1000., 10000., 20000)
 
-    pdf = p_DMcosmic(DM_values, z, F, H0, Obhsqf=Obhsqf, Om=Om)
+    ObfH0 = Obhsqf * 10000 / H0
+    pdf = p_DMcosmic(DM_values, z, F, ObfH0, Om=Om)
 
     # Invert the CDF.
     cum_values = pdf.cumsum()/pdf.sum()
@@ -104,10 +105,10 @@ def positive_normal(loc, scale, size=None, rng=None):
 
 
 def simulate_FRBs(n_draw, z_mean, z_sigma, sigma_DL, Obhsqf=0.017, H0=70, F=0.32, Om=0.3, DM0=100,
-                  sigma_host=1):
+                  sigma_host=1, seed=None):
     c = 299792.458
 
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(seed=seed)
     zs = positive_normal(loc=z_mean, scale=z_sigma, size=n_draw, rng=rng)
 
     DMs, DM_host = draw_DM(zs, Obhsqf=Obhsqf, H0=H0, F=F, Om=Om, DM0=DM0, sigma_host=sigma_host, rng=rng)
@@ -135,27 +136,57 @@ def p_DL(DL_samps, **kwargs):
     return norm.pdf(DL_samps, loc=DL_measured, scale=sigma_DL)
 
 
+# Redefine the FRB prior to a different one from James et al. Adapt the following code from mcmc.
+def log_p_H0(H0, Obhsqf):
+    """Probability of H0 given Omega_b*h^2*f_d.
+
+    To not have to change everything I leave the dependency as is although it
+    should only depend on ObfH0.
+    """
+    # Define the constant that James2022 assumed for O_b*H_0^2*f_d (ignoring z dependence of f_d)
+    james_const = 0.02242*0.844
+    translated_H0 = H0*james_const/Obhsqf
+    log_p_H0 = norm.logpdf(translated_H0, loc=73, scale=0.8) + np.log(james_const/Obhsqf)
+
+    return log_p_H0
+
+
 if __name__ == '__main__':
     # Simulate FRBs.
-    n_FRBs = 10
-
     c = 299792.458
-    Obhsqf = .025*0.844
-    H0 = 70
+    Obhsqf = 0.02242*0.844
+    H0 = 73
     Om = 0.3
-    z_mean = .1
     mu_host = 2.23
     DM0 = 10**mu_host
-    sigma_host = 0.57
+    sigma_host = .57  #0.57
     F = 0.32
     mcmc.mu_host = mu_host
     mcmc.sigma_host = sigma_host
     mcmc.F = F
+    mcmc.log_p_H0 = log_p_H0
+
+    n_FRBs = 100
+    z_mean = 0.2
 
     DL_mean = c/H0*lum_dist(z_mean, Om=0.3)
-    sigma_DL = 0.4*DL_mean
+    eDL = 0.2
+    sigma_DL = eDL*DL_mean
     DL_meas, DMexc, DM_host = simulate_FRBs(n_FRBs, z_mean=z_mean, z_sigma=0, sigma_DL=sigma_DL, Obhsqf=Obhsqf,
-                                   H0=H0, F=F, Om=Om, DM0=DM0, sigma_host=sigma_host)
+                                            H0=H0, F=F, Om=Om, DM0=DM0, sigma_host=sigma_host, seed=45)
+
+    # Add 10 low z, low eD_L FRBs.
+    n_FRBs2 = 20
+    z_mean2 = 0.1
+    DL_mean2 = c/H0*lum_dist(z_mean, Om=0.3)
+    eDL2 = 0.1
+    sigma_DL2 = eDL2*DL_mean2
+    DL_meas2, DMexc2, DM_host2 = simulate_FRBs(n_FRBs2, z_mean=z_mean2, z_sigma=0, sigma_DL=sigma_DL2, Obhsqf=Obhsqf,
+                                            H0=H0, F=F, Om=Om, DM0=DM0, sigma_host=sigma_host, seed=121105)
+    n_FRBs = n_FRBs + n_FRBs2
+
+    # Concatenate the two simulated sets.
+    DL_meas, DMexc, DM_host = np.concatenate((DL_meas, DL_meas2)), np.concatenate((DMexc, DMexc2)), np.concatenate((DM_host, DM_host2)),
 
     # Redefine prior for our D_L distributions.
     mcmc.p_DL = p_DL
@@ -163,22 +194,27 @@ if __name__ == '__main__':
     # Initialize the grid over which to integrate D_L and DM_cosmic
     n_rect_DL = 100
     n_rect_DM = 120
-    initialize_integration(DMexc=DMexc, DL_min=DL_mean-5*sigma_DL, DL_max=DL_mean+5*sigma_DL,
+    DL_min = min(DL_mean-5*sigma_DL, DL_mean2-5*sigma_DL2)
+    DL_max = max(DL_mean+5*sigma_DL, DL_mean2+5*sigma_DL2)
+    initialize_integration(DMexc=DMexc, DL_min=DL_min, DL_max=DL_max,
                            n_rect_DM=n_rect_DM, n_rect_DL=n_rect_DL,
                            p_DL_kwargs={'DL_measured' : DL_meas, 'sigma_DL' : sigma_DL})
 
     # Do inference for the simulated FRBs. Initialize the walkers.
-    nwalkers = 24
+    nwalkers = 23
     rng = np.random.default_rng()
     H0_init = rng.normal(70, 10, size=(nwalkers, 1))
     Obhsqf_init = rng.normal(Obhsqf, 0.0025, size=(nwalkers, 1))
     initial = np.concatenate((H0_init, Obhsqf_init), axis=1)
 
     ndim = 2
-    nsteps = 1000
+    nsteps = 5000
 
     # Set up a backend to save the chains to.
-    filename = os.path.join(config.DATA_DIR, f"simulated_{n_FRBs}FRBs_z{z_mean}_eDL0.4_{nwalkers}x{nsteps}steps.h5")
+    filename = os.path.join(config.DATA_DIR,
+                            f"simulated_{n_FRBs}FRBs_tight_prior_z{z_mean}_{z_mean2}_eDL{eDL}_{eDL2}_{nwalkers}x{nsteps}steps_d.h5")
+    if os.path.isfile(filename):
+        print("Warning: File exists and will be appended to.")
     backend = emcee.backends.HDFBackend(filename)
     # backend.reset(nwalkers, ndim)
 
@@ -187,11 +223,11 @@ if __name__ == '__main__':
                                         backend=backend, pool=pool)
         sampler.run_mcmc(initial, nsteps, progress=True, progress_kwargs={'mininterval':5})
 
-    # # Sample the James prior.
+    # Sample the James prior.
     # ndim_J = 2
-    # nsteps_J = 50_000
+    # nsteps_J = 30_000
 
-    # filename = os.path.join(config.DATA_DIR, f"James_prior_{nwalkers}x{nsteps_J}steps.h5")
+    # filename = os.path.join(config.DATA_DIR, f"1kFRB_prior_{nwalkers}x{nsteps_J}steps.h5")
     # backend = emcee.backends.HDFBackend(filename)
 
     # initial_J = np.concatenate((H0_init, Obhsqf_init), axis=1)
@@ -203,7 +239,8 @@ if __name__ == '__main__':
     #     sampler_J2.run_mcmc(initial_J, nsteps_J, progress=True, progress_kwargs={'mininterval':5})
 
     # Sample the GW-FRB posterior without the FRB-z prior.
-    filename = os.path.join(config.DATA_DIR, f"simulated_noz_{n_FRBs}FRBs_z{z_mean}_eDL0.4_{nwalkers}x{nsteps}steps.h5")
+    filename = os.path.join(config.DATA_DIR,
+                            f"simulated_noz_{n_FRBs}FRBs_tight_prior_z{z_mean}_{z_mean2}_eDL{eDL}_{eDL2}_{nwalkers}x{nsteps}steps_d.h5")
     backend = emcee.backends.HDFBackend(filename)
 
     with Pool() as pool:

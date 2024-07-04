@@ -12,20 +12,23 @@ import corner
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 import seaborn as sns
+import arviz as az
+
+from scipy.stats import mode
 
 import config
 
 # Load results from inference on simulated FRB-GW events.
-filename = os.path.join(config.DATA_DIR, "simulated_10FRBs_z0.1_eDL0.4_24x1000steps.h5")
+filename = os.path.join(config.DATA_DIR, "simulated_120FRBs_tight_prior_z0.2_0.1_eDL0.2_0.1_23x5000steps_d.h5")  # "simulated_10FRBs_z0.1_eDL0.4_24x5000steps.h5")  #"simulated_110FRBs_z0.2_0.1_eDL0.2_0.1_23x5000steps.h5") #"real_FRB_24x5000steps.h5")  #
 sampler = emcee.backends.HDFBackend(filename)
 
 #tau = sampler.get_autocorr_time()
 #burnin = int(2 * np.max(tau))
 
-samples = sampler.get_chain(discard=100)
+samples = sampler.get_chain(discard=1000)
 
 # Results from only James
-filename1 = os.path.join(config.DATA_DIR, "James_prior_24x50000steps.h5")
+filename1 = os.path.join(config.DATA_DIR, "1kFRB_prior_23x30000steps.h5")  # "James_prior_24x5000steps.h5")  #
 sampler_J = emcee.backends.HDFBackend(filename1)
 
 # tau = sampler_J.get_autocorr_time()
@@ -34,13 +37,13 @@ sampler_J = emcee.backends.HDFBackend(filename1)
 samples_J = sampler_J.get_chain(discard=1000)
 
 # Results without taking James et al. into account.
-filename2 = os.path.join(config.DATA_DIR, "simulated_noz_10FRBs_z0.1_eDL0.4_24x1000steps.h5")
+filename2 = os.path.join(config.DATA_DIR, "simulated_noz_120FRBs_tight_prior_z0.2_0.1_eDL0.2_0.1_23x5000steps_d.h5") #"simulated_noz_10FRBs_z0.1_eDL0.4_24x5000steps.h5")  #"simulated_noz_110FRBs_z0.2_0.1_eDL0.2_0.1_23x5000steps.h5") #"real_FRB_noz_24x5000steps.h5")  #
 sampler_noz = emcee.backends.HDFBackend(filename2)
 
 #tau = sampler_noz.get_autocorr_time()
 #burnin = int(2 * np.max(tau))
 
-samples_noz = sampler_noz.get_chain(discard=100)
+samples_noz = sampler_noz.get_chain(discard=1000)
 
 # Plot corner plot with all DMs and D_Ls
 # labels=(['$H_0$', r'$\Omega_b f_d$']
@@ -49,7 +52,7 @@ samples_noz = sampler_noz.get_chain(discard=100)
 #         )
 # fig = corner.corner(sampler, labels=labels, truths=[H0, Obf, *DL_meas, *DM_host])
 
-labels=(['$H_0$', r'$\Omega_b h^2 f_d$'])
+labels=(['$H_0$ (km/s/Mpc)', r'$\Omega_b h^2 f_d$'])
 
 cm2 = sns.color_palette('deep') #plt.get_cmap('tab10')
 cm = sns.color_palette('pastel')
@@ -64,32 +67,36 @@ color_set = [[(0,0,0,0), list(cm[2]) + [alpha], list(cm2[2]) + [alpha]],
              [(0,0,0,0), list(cm[0]) + [alpha], list(cm2[0]) + [alpha]]]
 
 plot_kwargs = dict(labels=labels,
-                   smooth=1.,
+                   bins=100,
+                   hist_bin_factor=0.5,
+                   #smooth=.1, #.5,
                    levels=(0.68, 0.95),
                    plot_density=False,
                    plot_datapoints=False,
                    fill_contours=True,
-                   range=[(10, 150), (0, 0.06)],
+                   range=[(40, 100), (0, 0.03)], #0.045
                    )
 fig = corner.corner(samples_J.swapaxes(0,1),
                     color=cm2[2],
-                    hist_kwargs={'density' : True, 'lw' : 2., 'label' : "FRB-z priors"},
-                    contour_kwargs={'linewidths' : .5, 'colors' : [cm2[2]]},
+                    hist_kwargs={'density' : True, 'lw' : 2., 'label' : "FRB-z constraints"},  #
+                    contour_kwargs={'linewidths' : .5, 'colors' : [cm2[2]], 'algorithm' : 'threaded'},
                     contourf_kwargs={'colors' : color_set[0],},
                     **plot_kwargs,
                     )
 fig = corner.corner(samples_noz.swapaxes(0,1),
                     color=cm2[1],
                     fig=fig,
-                    hist_kwargs={'density' : True, 'lw' : 2., 'label' : "FRB-GW constraints only"},
+                    hist_kwargs={'density' : True, 'lw' : 2., 'label' : "FRB-GW constraints"},  #
                     contour_kwargs={'linewidths' : .5, 'colors' : [cm2[1]]},
                     contourf_kwargs={'colors' : color_set[1],},
+                    smooth=1,
                     **plot_kwargs,
                     )
 fig = corner.corner(samples.swapaxes(0,1),
                     color=cm2[0],
                     fig=fig,
-                    hist_kwargs={'density' : True, 'lw' : 2., 'label' : "Combined constraints"},
+                    truths=[73, 0.02242*0.844],
+                    hist_kwargs={'density' : True, 'lw' : 2., 'label' : "Combined constraints"},  #
                     contour_kwargs={'linewidths' : .5, 'colors' : [cm2[0]]},
                     contourf_kwargs={'colors' : color_set[2],},
                     **plot_kwargs
@@ -111,3 +118,19 @@ plt.legend(bbox_to_anchor=(1.05, 2), loc="upper right")
 
 fig_path = os.path.splitext(filename)[0] + ".png"
 fig.savefig(fig_path, bbox_inches='tight', pad_inches=0.01, dpi=300)
+print("Some test statistics:")
+samples = samples.swapaxes(0,1)
+print("BFMI (values smaller than 0.3 indicate poor sampling):")
+print(f"{az.bfmi(samples)}")
+print("rank normalized splitR-hat (Values greater than one indicate that one or more chains have not yet converged):")
+print(az.rhat(az.convert_to_dataset(samples)))
+
+hdi_H0 = az.hdi(samples[:,:,0].flatten(), .68) #np.percentile(samples[:,:,0], [15.9,50,84.1])  # 68 percent
+H0 = np.median(samples[:,:,0])
+obhf = np.median(samples[:,:,1])
+hdi_obhf = az.hdi(samples[:,:,1].flatten(), .68)
+# H0_mode = mode(samples[:,:,0].flatten())
+# obhf_mode = mode(samples[:,:,1].flatten())
+print(fr"The uncertainty is ~+-{(hdi_H0[1]-hdi_H0[0])/2:0.2f}")
+print(fr"H_0 is {H0}^+{hdi_H0[1]-H0:0.2f}_{hdi_H0[0]-H0:0.2f}. Relative: {(hdi_H0[1]-hdi_H0[0])/2/H0}")
+print(fr"Obh2f*100 is {obhf*100}^+{(hdi_obhf[1]-obhf)*100:0.3f}_{(hdi_obhf[0]-obhf)*100:0.3f}. Relative: {(hdi_obhf[1]-hdi_obhf[0])/2/obhf}")

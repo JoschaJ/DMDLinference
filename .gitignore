@@ -3,6 +3,10 @@
 Data/
 Data_pre_Omhsqf/
 
+# IDE settings
+.vscode/
+.DS_Store/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

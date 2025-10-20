@@ -8,7 +8,6 @@ Created on Mon Jun 26 14:08:54 2023
 import os
 import numpy as np
 import emcee
-import corner
 
 import mcmc
 import config
@@ -16,8 +15,9 @@ import config
 from multiprocessing import Pool
 from scipy.stats import norm
 
-from mcmc import p_DMcosmic, lum_dist, log_probability, log_p_H0_with_prior, log_prior
-from mcmc import log_probability_without_FRBs, initialize_integration
+from mcmc import p_DMcosmic, lum_dist, log_probability
+from mcmc import log_probability_without_FRBs, IntegrationAssistant
+
 
 def draw_DM(frb_zs, Obhsqf=0.017, H0=70, F=0.32, Om=0.3, DM0=100, sigma_host=1, rng=None):
     """Draw a DM for each given reshift.
@@ -196,8 +196,8 @@ if __name__ == '__main__':
     n_rect_DM = 120
     DL_min = min(DL_mean-5*sigma_DL, DL_mean2-5*sigma_DL2)
     DL_max = max(DL_mean+5*sigma_DL, DL_mean2+5*sigma_DL2)
-    initialize_integration(DMexc=DMexc, DL_min=DL_min, DL_max=DL_max,
-                           n_rect_DM=n_rect_DM, n_rect_DL=n_rect_DL,
+    ia = IntegrationAssistant(DMexc=DMexc, DL_min=DL_min, DL_max=DL_max,
+                           n_rect_DM=n_rect_DM, n_rect_DL=n_rect_DL, p_DL=p_DL,
                            p_DL_kwargs={'DL_measured' : DL_meas, 'sigma_DL' : sigma_DL})
 
     # Do inference for the simulated FRBs. Initialize the walkers.
@@ -219,7 +219,7 @@ if __name__ == '__main__':
     # backend.reset(nwalkers, ndim)
 
     with Pool() as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=[ia],
                                         backend=backend, pool=pool)
         sampler.run_mcmc(initial, nsteps, progress=True, progress_kwargs={'mininterval':5})
 
@@ -244,6 +244,6 @@ if __name__ == '__main__':
     backend = emcee.backends.HDFBackend(filename)
 
     with Pool() as pool:
-        sampler_noz = emcee.EnsembleSampler(nwalkers, ndim, log_probability_without_FRBs,
+        sampler_noz = emcee.EnsembleSampler(nwalkers, ndim, log_probability_without_FRBs, args=[ia],
                                             backend=backend, pool=pool)
         sampler_noz.run_mcmc(initial, nsteps, progress=True, progress_kwargs={'mininterval':5})

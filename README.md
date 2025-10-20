@@ -1,6 +1,6 @@
 # DMDLinference
 
-Codes accompanying the paper [https://ui.adsabs.harvard.edu/abs/2025arXiv250814434J](Jahns-Schindler & Spitler (2025)) used for inferring cosmological parameters using Fast Radio Burst (FRB) dispersion measures and gravitational wave luminosity distances.
+Codes accompanying the paper [Jahns-Schindler & Spitler (2025)](https://ui.adsabs.harvard.edu/abs/2025arXiv250814434J) used for inferring cosmological parameters using Fast Radio Burst (FRB) dispersion measures and gravitational wave luminosity distances.
 
 ## Overview
 

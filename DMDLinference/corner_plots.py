@@ -19,31 +19,46 @@ from scipy.stats import mode
 import config
 
 # Load results from inference on simulated FRB-GW events.
-filename = os.path.join(config.DATA_DIR, "simulated_120FRBs_tight_prior_z0.2_0.1_eDL0.2_0.1_23x5000steps_d.h5")  # "simulated_10FRBs_z0.1_eDL0.4_24x5000steps.h5")  #"simulated_110FRBs_z0.2_0.1_eDL0.2_0.1_23x5000steps.h5") #"real_FRB_24x5000steps.h5")  #
+filename = os.path.join(config.DATA_DIR, "simulated_120FRBs_free_host_vary_z0.2_0.1_eDL0.2_0.1_8x5000steps.h5")
+                        #"simulated_120FRBs_free_host_z0.2_0.1_eDL0.2_0.1_8x5000steps_d.h5")
+#"simulated_120FRBs_tight_prior_z0.2_0.1_eDL0.2_0.1_23x5000steps_d.h5")  # "simulated_10FRBs_z0.1_eDL0.4_24x5000steps.h5")  #"simulated_110FRBs_z0.2_0.1_eDL0.2_0.1_23x5000steps.h5") #"real_FRB_24x5000steps.h5")  #
 sampler = emcee.backends.HDFBackend(filename)
 
 #tau = sampler.get_autocorr_time()
 #burnin = int(2 * np.max(tau))
 
-samples = sampler.get_chain(discard=1000)
+fig, axes = plt.subplots(4, figsize=(10, 7), sharex=True)
+samples = sampler.get_chain()
+labels = ['$H_0$ (km/s/Mpc)', r'$\Omega_b h^2 f_d$', '$\mu_\mathrm{host}$', '$\sigma_\mathrm{host}$']
+for i in range(4):
+    ax = axes[i]
+    ax.plot(samples[:, :, i], "k", alpha=0.3)
+    ax.set_xlim(0, len(samples))
+    ax.set_ylabel(labels[i])
+    ax.yaxis.set_label_coords(-0.1, 0.5)
 
-# Results from only James
-filename1 = os.path.join(config.DATA_DIR, "1kFRB_prior_23x30000steps.h5")  # "James_prior_24x5000steps.h5")  #
-sampler_J = emcee.backends.HDFBackend(filename1)
+axes[-1].set_xlabel("step number");
+fig.savefig(os.path.join(config.DATA_DIR, "chains.png"))
 
-# tau = sampler_J.get_autocorr_time()
-# burnin = int(2 * np.max(tau))
+samples = sampler.get_chain(discard=500)
 
-samples_J = sampler_J.get_chain(discard=1000)
+# # Results from only James
+# filename1 = os.path.join(config.DATA_DIR, "1kFRB_prior_23x30000steps.h5")  # "James_prior_24x5000steps.h5")  #
+# sampler_J = emcee.backends.HDFBackend(filename1)
+
+# # tau = sampler_J.get_autocorr_time()
+# # burnin = int(2 * np.max(tau))
+
+# samples_J = sampler_J.get_chain(discard=1000)
 
 # Results without taking James et al. into account.
-filename2 = os.path.join(config.DATA_DIR, "simulated_noz_120FRBs_tight_prior_z0.2_0.1_eDL0.2_0.1_23x5000steps_d.h5") #"simulated_noz_10FRBs_z0.1_eDL0.4_24x5000steps.h5")  #"simulated_noz_110FRBs_z0.2_0.1_eDL0.2_0.1_23x5000steps.h5") #"real_FRB_noz_24x5000steps.h5")  #
+filename2 = os.path.join(config.DATA_DIR, "simulated_noz_120FRBs_free_host_vary_z0.2_0.1_eDL0.2_0.1_8x5000steps.h5") #"simulated_noz_10FRBs_z0.1_eDL0.4_24x5000steps.h5")  #"simulated_noz_110FRBs_z0.2_0.1_eDL0.2_0.1_23x5000steps.h5") #"real_FRB_noz_24x5000steps.h5")  #
 sampler_noz = emcee.backends.HDFBackend(filename2)
 
 #tau = sampler_noz.get_autocorr_time()
 #burnin = int(2 * np.max(tau))
 
-samples_noz = sampler_noz.get_chain(discard=1000)
+samples_noz = sampler_noz.get_chain(discard=500)
 
 # Plot corner plot with all DMs and D_Ls
 # labels=(['$H_0$', r'$\Omega_b f_d$']
@@ -52,7 +67,7 @@ samples_noz = sampler_noz.get_chain(discard=1000)
 #         )
 # fig = corner.corner(sampler, labels=labels, truths=[H0, Obf, *DL_meas, *DM_host])
 
-labels=(['$H_0$ (km/s/Mpc)', r'$\Omega_b h^2 f_d$'])
+labels=(['$H_0$ (km/s/Mpc)', r'$\Omega_\mathrm{b} h^2 f_\mathrm{d}$', '$\mu_\mathrm{host}$', '$\sigma_\mathrm{host}$'])
 
 cm2 = sns.color_palette('deep') #plt.get_cmap('tab10')
 cm = sns.color_palette('pastel')
@@ -74,38 +89,45 @@ plot_kwargs = dict(labels=labels,
                    plot_density=False,
                    plot_datapoints=False,
                    fill_contours=True,
-                   range=[(40, 100), (0, 0.03)], #0.045
+                   max_n_ticks=3,
+                   labelpad=0.1,
+                   range=[(40, 100), (0, 0.03), (1.5, 2.5), (0.3, 1)], #0.045
                    )
-fig = corner.corner(samples_J.swapaxes(0,1),
-                    color=cm2[2],
-                    hist_kwargs={'density' : True, 'lw' : 2., 'label' : "FRB-z constraints"},  #
-                    contour_kwargs={'linewidths' : .5, 'colors' : [cm2[2]], 'algorithm' : 'threaded'},
-                    contourf_kwargs={'colors' : color_set[0],},
-                    **plot_kwargs,
-                    )
-fig = corner.corner(samples_noz.swapaxes(0,1),
+# fig = corner.corner(samples_J.swapaxes(0,1),
+#                     color=cm2[2],
+#                     hist_kwargs={'density' : True, 'lw' : 2., 'label' : "FRB-z constraints"},  #
+#                     contour_kwargs={'linewidths' : .5, 'colors' : [cm2[2]], 'algorithm' : 'threaded'},
+#                     contourf_kwargs={'colors' : color_set[0],},
+#                     **plot_kwargs,
+#                     )
+fig = plt.figure(figsize=(5, 5))
+fig = corner.corner(samples_noz,  #.swapaxes(0,1)
                     color=cm2[1],
                     fig=fig,
                     hist_kwargs={'density' : True, 'lw' : 2., 'label' : "FRB-GW constraints"},  #
                     contour_kwargs={'linewidths' : .5, 'colors' : [cm2[1]]},
                     contourf_kwargs={'colors' : color_set[1],},
-                    smooth=1,
+                    smooth=2,
                     **plot_kwargs,
                     )
-fig = corner.corner(samples.swapaxes(0,1),
+fig = corner.corner(samples, #swapaxes(0,1)
                     color=cm2[0],
                     fig=fig,
-                    truths=[73, 0.02242*0.844],
+                    truths=[73, 0.02242*0.844, 2, 0.57],
                     hist_kwargs={'density' : True, 'lw' : 2., 'label' : "Combined constraints"},  #
                     contour_kwargs={'linewidths' : .5, 'colors' : [cm2[0]]},
                     contourf_kwargs={'colors' : color_set[2],},
+                    smooth=1,
                     **plot_kwargs
                     )
+axs = fig.get_axes()
+axs[-1].set_xticks([0.4, 0.6, 0.8])
+axs[-4].set_yticks([0.4, 0.6, 0.8])
 # sample_labels = ["Combined constraints",
 #                  "FRB-GW constraints only",
 #                  "FRB-z priors"
 #                  ]
-plt.legend(bbox_to_anchor=(1.05, 2), loc="upper right")
+plt.legend(bbox_to_anchor=(1.05, 4), loc="upper right")
 # plt.legend(
 #         handles=[
 #             mlines.Line2D([], [], color=cm2[i], label=sample_labels[i])

@@ -33,7 +33,7 @@ Key parameters include:
 - μₕₒₛₜ, σₖₒₛₜ: Host DM distribution parameters
 
 Run inference with:
-```python
+```bash
 python simulate_data.py  # Fixed host parameters
 python mcmc_free_host.py  # Free host parameters
 ```

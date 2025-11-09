@@ -16,6 +16,13 @@ This package implements Bayesian inference to constrain the Hubble constant (Hâ‚
 - `mcmc_free_host.py` - Extended inference allowing free host DM parameters (creates data for fig. 4)
 - `corner_plots.py` - Generate corner plots from the mcmc chains. Needs to be used by outcommenting and uncommenting the correct lines.
 
+## Installation via conda
+
+```bash
+conda create -c conda-forge -n gwmcmc python=3.11 numpy scipy matplotlib astropy emcee corner h5py tqdm seaborn
+conda activate gwmcmc
+```
+
 ## Dependencies
 
 - numpy
@@ -24,6 +31,7 @@ This package implements Bayesian inference to constrain the Hubble constant (Hâ‚
 - astropy
 - h5py
 - multiprocessing
+- corner
 
 ## Usage
 

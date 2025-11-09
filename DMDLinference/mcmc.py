@@ -24,34 +24,38 @@ import config
 gamma133 = gamma(1/3)*3
 gamma562 = 2**(1/2)*gamma(5/6)
 
-def create_James_prior():
-    """Define a prior probability function on O_m h^2 f_d from FRBs by James."""
-    james_file = os.path.join(config.DATA_IN_DIR, 'James2022_H0_posterior.csv')
-    james_data = np.loadtxt(james_file, delimiter=';')
+# Somehow in the multiprocessing the global variables are still None, so this nicer approach is not working.
+# Global variables for James prior to enable pickling
+# _james_const = None
+# _H0_points = None
+# _p_H0_unnorm = None
+# _norm_p_H0 = None
 
-    H0_points = james_data[:, 0]
-    p_H0 = james_data[:, 1]
 
-    p_H0_unnorm = CubicSpline(H0_points, p_H0, extrapolate=False)
-    norm_p_H0 = quad(p_H0_unnorm, H0_points.min(), H0_points.max())[0]
+# def create_James_prior():
+#     """Define a prior probability function on O_m h^2 f_d from FRBs by James."""
+# global _james_const, _H0_points, _p_H0_unnorm, _norm_p_H0
 
-    # Define the constant that James2022 assumed for O_b*H_0^2*f_d (ignoring z dependence of f_d)
-    james_const = 0.02242*0.844
-    H0_points = H0_points
-    p_H0_unnorm = p_H0_unnorm
+james_file = os.path.join(config.DATA_IN_DIR, 'James2022_H0_posterior.csv')
+james_data = np.loadtxt(james_file, delimiter=';')
 
-    def log_p_H0(H0, Obhsqf):
-        """Probability of H0 given Omega_b*h^2*f_d.
+_H0_points = james_data[:, 0]
+p_H0 = james_data[:, 1]
 
-        To not have to change everything I leave the dependency as is although it
-        should only depend on ObfH0.
-        """
-        translated_H0 = H0*james_const/Obhsqf
-        log_p_H0 = np.where((H0_points.min() < translated_H0) & (translated_H0 < H0_points.max()),
-                        np.log(p_H0_unnorm(translated_H0)*james_const/Obhsqf/norm_p_H0), -np.inf)
+_p_H0_unnorm = CubicSpline(_H0_points, p_H0, extrapolate=False)
+_norm_p_H0 = quad(_p_H0_unnorm, _H0_points.min(), _H0_points.max())[0]
 
-        return log_p_H0
+# Define the constant that James2022 assumed for O_b*H_0^2*f_d (ignoring z dependence of f_d)
+_james_const = 0.02242*0.844
 
+# return _log_p_H0_func
+
+
+def log_p_H0_James(H0, Obhsqf):
+    """Global function for James prior that can be pickled."""
+    translated_H0 = H0*_james_const/Obhsqf
+    log_p_H0 = np.where((_H0_points.min() < translated_H0) & (translated_H0 < _H0_points.max()),
+                    np.log(_p_H0_unnorm(translated_H0)*_james_const/Obhsqf/_norm_p_H0), -np.inf)
     return log_p_H0
 
 
@@ -187,7 +191,7 @@ def p_DM(DL, H0, ObfH0, ia):
         z = z[:, np.newaxis]
 
     p_DMhost = (1+z)*log10_normal(ia.DMcosmic[..., ::-1]*(1+z), mu=ia.mu_host, sigma=ia.sigma_host)
-    integral = np.sum(p_DMhost*p_DMcosmic(ia.DMcosmic, z, F, ObfH0, Om=0.3), axis=-1)*ia.dDM
+    integral = np.sum(p_DMhost*p_DMcosmic(ia.DMcosmic, z, ia.F, ObfH0, Om=0.3), axis=-1)*ia.dDM
 
     return integral
 
@@ -211,7 +215,7 @@ class IntegrationAssistant:
 
 def log_prior(H0, Obhsqf):
     """Define the combination of all prior probabilities."""
-    if 10 < H0 < 150. and 0.0 < Obhsqf < 0.1 :
+    if 20 < H0 < 150. and 0.0 < Obhsqf < 0.1 :
         return 0
     else:
         return -np.inf
@@ -256,18 +260,18 @@ def log_probability_without_FRBs(theta, ia):
 
     # Evaluate the likelihood, only if the prior is non-infinite.
     if np.isfinite(lp):
-        log_prob = lp + np.sum(np.log(np.sum(ia.p_DL_sampled*p_DM(ia.DL_samples, H0, ObfH0, ia)*ia.dDL, axis=-1)))
+        log_prob = lp + np.sum(np.log(np.sum(ia.p_DL_sampled*ia.p_DM(ia.DL_samples, H0, ObfH0, ia)*ia.dDL, axis=-1)))
     else:
         log_prob = -np.inf
     return log_prob
 
 
-def log_p_H0_with_prior(theta):
+def log_p_H0_with_prior(theta, ia):
     """p(Obf,H_0) with a prior to plot contours from only the FRB-z"""
     H0, Obhsqf = theta
     # Obf = Obhsqf * 10000 / H0**2
     if .1 < H0 < 150. and 0.0 < Obhsqf < 1.:
-        return log_p_H0(H0, Obhsqf)
+        return ia.log_p_H0(H0, Obhsqf)
     else:
         return -np.inf
 
@@ -282,18 +286,18 @@ if __name__ == '__main__':
     F = 0.32
     #f_igm = 0.83
 
-    nwalkers = 24
+    nwalkers = 8
     rng = np.random.default_rng()
     # DL_init = rng.normal(DLum.mean(), 10, size=nwalkers)
     n_rect_DL = 100
     n_rect_DM = 120
-    log_p_H0 = create_James_prior()
+    log_p_H0 = log_p_H0_James
     p_DL = create_p_DL()
     ia = IntegrationAssistant(DMexc=DMexc_ne2001, DL_min=p_DL.DLum.min(), DL_max=p_DL.DLum.max(),
                            n_rect_DM=n_rect_DM, n_rect_DL=n_rect_DL, p_DL=p_DL)
     ia.log_p_H0 = log_p_H0
     ia.p_DM = p_DM
-    ia.mu_host, ia.sigma_host = mu_host, sigma_host
+    ia.mu_host, ia.sigma_host, ia.F = mu_host, sigma_host, F
 
     h_init = 0.7
     H0_init = rng.normal(h_init*100, 5, size=nwalkers)
@@ -312,8 +316,8 @@ if __name__ == '__main__':
                                         backend=backend, pool=pool)
         sampler.run_mcmc(initial, nsteps, progress=True, progress_kwargs={'mininterval':5})
 
-    tau = sampler.get_autocorr_time()
-    print(tau)
+    # tau = sampler.get_autocorr_time()
+    # print(tau)
 
     # Sample the James prior.
     # ndim = 2

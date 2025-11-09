@@ -14,7 +14,6 @@ from mcmc import p_DMcosmic, lum_dist, log_prior
 from mcmc import IntegrationAssistant, z_of_DL, log10_normal
 from simulate_data import simulate_FRBs, log_p_H0, p_DL
 
-F = 0.32
 
 def p_DM(DL, H0, ObfH0, mu_host, sigma_host, ia):
     """Probability measuring a DM given the distance and parameters."""
@@ -23,7 +22,7 @@ def p_DM(DL, H0, ObfH0, mu_host, sigma_host, ia):
         z = z[:, np.newaxis]
 
     p_DMhost = (1+z)*log10_normal(ia.DMcosmic[..., ::-1]*(1+z), mu=mu_host, sigma=sigma_host)
-    integral = np.sum(p_DMhost*p_DMcosmic(ia.DMcosmic, z, F, ObfH0, Om=0.3), axis=-1)*ia.dDM
+    integral = np.sum(p_DMhost*p_DMcosmic(ia.DMcosmic, z, ia.F, ObfH0, Om=0.3), axis=-1)*ia.dDM
 
     return integral
 
@@ -81,9 +80,6 @@ if __name__ == '__main__':
     DM0 = 10**mu_host
     sigma_host = .57  #0.57
     F = 0.32
-    # mcmc.mu_host = mu_host
-    # mcmc.sigma_host = sigma_host
-    mcmc.F = F
 
     n_FRBs = 100
     z_mean = 0.2
@@ -120,6 +116,7 @@ if __name__ == '__main__':
                            p_DL_kwargs={'DL_measured' : DL_meas, 'sigma_DL' : sigma_DL})
 
     # Redefine prior for our D_L distributions.
+    ia.F = F
     ia.log_p_H0 = log_p_H0
     ia.p_DM = p_DM
 
@@ -133,20 +130,20 @@ if __name__ == '__main__':
     initial = np.concatenate((H0_init, Obhsqf_init, mu_host_init, sigma_host_init), axis=1)
 
     ndim = 4
-    nsteps = 5000
+    nsteps = 500
 
-    # # Set up a backend to save the chains to.
-    # filename = os.path.join(config.DATA_DIR,
-    #                         f"simulated_{n_FRBs}FRBs_free_host_vary_z{z_mean}_{z_mean2}_eDL{eDL}_{eDL2}_{nwalkers}x{nsteps}steps.h5")
-    # if os.path.isfile(filename):
-    #     print("Warning: File exists and will be appended to.")
-    # backend = emcee.backends.HDFBackend(filename)
-    # # backend.reset(nwalkers, ndim)
+    # Set up a backend to save the chains to.
+    filename = os.path.join(config.DATA_DIR,
+                            f"simulated_{n_FRBs}FRBs_free_host_vary_z{z_mean}_{z_mean2}_eDL{eDL}_{eDL2}_{nwalkers}x{nsteps}steps.h5")
+    if os.path.isfile(filename):
+        print("Warning: File exists and will be appended to.")
+    backend = emcee.backends.HDFBackend(filename)
+    # backend.reset(nwalkers, ndim)
 
-    # with Pool() as pool:
-    #     sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=[ia],
-    #                                     backend=backend, pool=pool)
-    #     sampler.run_mcmc(initial, nsteps, progress=True, progress_kwargs={'mininterval':5})
+    with Pool() as pool:
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=[ia],
+                                        backend=backend, pool=pool)
+        sampler.run_mcmc(initial, nsteps, progress=True, progress_kwargs={'mininterval':5})
 
     # Sample the GW-FRB posterior without the FRB-z prior.
     filename = os.path.join(config.DATA_DIR,

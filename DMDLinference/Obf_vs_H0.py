@@ -37,11 +37,12 @@ plt.plot(H0, Obhsqf_lin(H0), label=r"DM–$z$ relation; $\propto H_0$", color=sn
 zs = [.1, 1, 2, 3]
 
 cmap = sns.color_palette("crest", n_colors=len(zs))
-plt.plot(H0, Obhsqf_no_dep(H0), color=cmap[0], label=r"DM–$D_L$ 1st order; $\propto 1$")
+linestyles = ['-', '--', '-.', ':']
+plt.plot(H0, Obhsqf_no_dep(H0), color=cmap[0], linestyle=linestyles[0], label=r"DM–$D_L$ 1st order; $\propto 1$")
 
-for z, color in zip(zs, cmap[1:]):
+for z, color, linestyle in zip(zs, cmap[1:], linestyles[1:]):
     DL = c/H0_fid * lum_dist(z)
-    plt.plot(H0, Obf_full(H0, DL), color=color, label=f"DM–$D_L$ full solution, $z={z}$")  # $\langle DM \rangle(\Omega_\mathrm b f_\mathrm d , H_0)$
+    plt.plot(H0, Obf_full(H0, DL), color=color, linestyle=linestyle, label=f"DM–$D_L$ full solution, $z={z}$")  # $\langle DM \rangle(\Omega_\mathrm b f_\mathrm d , H_0)$
 
 # DL = c/H0_fid * lum_dist(1)
 # plt.plot(H0, Obf_full(H0, DL), label=f"$z=1$")
@@ -53,7 +54,7 @@ for z, color in zip(zs, cmap[1:]):
 plt.xlim(40, 100)
 plt.ylim(.02, .06)
 
-plt.xlabel("$H_0$")
+plt.xlabel("$H_0\,$(km/s/Mpc)")
 plt.ylabel(r"$\Omega_\mathrm{b}h^2f_\mathrm{d}$")
 plt.legend()
 
